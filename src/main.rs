@@ -171,12 +171,19 @@ fn render(entries: Vec<Entry>) {
 
     print!("# TODOs\n\n");
 
-    let item_text = |x: &String| {
-        if x.len() > 0 {
-            return format!("{x} ");
-        }
+    let render_entry = |entry: Entry| {
+        // todo refactor structs such that Entry is a struct which contains an enum
+        let (text, location) = match entry {
+            Entry::Priority(entry) => (entry.text, entry.location),
+            Entry::Category(entry) => (entry.text, entry.location),
+            Entry::Generic(entry) => (entry.text, entry.location),
+        };
 
-        return "".to_string();
+        if text.len() > 0 {
+            println!("- [ ] {} ({}:{})", text, location.file.to_string_lossy(), location.line);
+        } else {
+            println!("- [ ] {}:{}", location.file.to_string_lossy(), location.line);
+        }
     };
 
     let mut priority_keys = priority_entries.keys().collect::<Vec<&isize>>();
@@ -201,7 +208,7 @@ fn render(entries: Vec<Entry>) {
         println!("## {}", priority_notation);
 
         for item in priority_entries.get(priority).unwrap() {
-            println!("- [ ] {}({}:{})", item_text(&item.text), item.location.file.to_string_lossy(), item.location.line);
+            render_entry(Entry::Priority(item.clone()));
         }
 
         println!("");
@@ -214,7 +221,7 @@ fn render(entries: Vec<Entry>) {
         println!("## {}", category);
 
         for item in category_entries.get(category).unwrap() {
-            println!("- [ ] {}({}:{})", item_text(&item.text), item.location.file.to_string_lossy(), item.location.line);
+            render_entry(Entry::Category(item.clone()));
         }
 
         println!("");
@@ -225,7 +232,7 @@ fn render(entries: Vec<Entry>) {
     generic_entries.sort_by(|a, b| a.text.partial_cmp(&b.text).unwrap());
 
     for item in generic_entries {
-        println!("- [ ] {}({}:{})", item_text(&item.text), item.location.file.to_string_lossy(), item.location.line);
+        render_entry(Entry::Generic(item.clone()));
     }
 
 }
