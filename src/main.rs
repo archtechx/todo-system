@@ -9,30 +9,27 @@ struct Location {
 }
 
 #[derive(Debug, PartialEq, Clone)]
-struct PriorityEntry {
+struct Entry {
     text: String,
-    priority: isize,
     location: Location,
+    data: EntryData,
 }
 
 #[derive(Debug, PartialEq, Clone)]
-struct CategoryEntry {
-    text: String,
-    category: String,
-    location: Location,
+enum EntryData {
+    Priority(isize),
+    Category(String),
+    Generic,
 }
 
-#[derive(Debug, PartialEq, Clone)]
-struct GenericEntry {
-    text: String,
-    location: Location,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-enum Entry {
-    Priority(PriorityEntry),
-    Category(CategoryEntry),
-    Generic(GenericEntry),
+impl Entry {
+    fn render(&self) {
+        if self.text.len() > 0 {
+            println!("- [ ] {} ({}:{})", self.text, self.location.file.to_string_lossy(), self.location.line);
+        } else {
+            println!("- [ ] {}:{}", self.location.file.to_string_lossy(), self.location.line);
+        }
+    }
 }
 
 fn scan_string(str: String, filename: PathBuf, entries: &mut Vec<Entry>) {
@@ -52,13 +49,14 @@ fn scan_string(str: String, filename: PathBuf, entries: &mut Vec<Entry>) {
                 let text_dirty = line.split_once(word).unwrap().1.replace("*/", "");
                 let text = text_dirty.trim();
 
-                entries.push(Entry::Generic(GenericEntry {
+                entries.push(Entry {
                     text: text.to_string(),
                     location: Location {
                         file: filename.clone(),
                         line: line_num + 1,
-                    }
-                }));
+                    },
+                    data: EntryData::Generic,
+                });
 
                 break;
             }
@@ -68,14 +66,14 @@ fn scan_string(str: String, filename: PathBuf, entries: &mut Vec<Entry>) {
                 let text_dirty = line.split_once(word).unwrap().1.replace("*/", "");
                 let text = text_dirty.trim();
 
-                entries.push(Entry::Category(CategoryEntry {
+                entries.push(Entry {
                     text: text.to_string(),
-                    category: category.to_string(),
                     location: Location {
                         file: filename.clone(),
                         line: line_num + 1,
                     },
-                }));
+                    data: EntryData::Category(category.to_string()),
+                });
 
                 break;
             }
@@ -102,14 +100,14 @@ fn scan_string(str: String, filename: PathBuf, entries: &mut Vec<Entry>) {
                 let text_dirty = line.split_once(word).unwrap().1.replace("*/", "");
                 let text = text_dirty.trim();
 
-                entries.push(Entry::Priority(PriorityEntry {
+                entries.push(Entry {
                     text: text.to_string(),
-                    priority: priority,
                     location: Location {
                         file: filename.clone(),
                         line: line_num + 1,
-                    }
-                }));
+                    },
+                    data: EntryData::Priority(priority),
+                });
             }
         }
     }
@@ -141,50 +139,35 @@ fn scan_dir(path: &Path, entries: &mut Vec<Entry>) -> io::Result<()> {
 }
 
 fn render(entries: Vec<Entry>) {
-    let mut priority_entries: HashMap<isize, Vec<PriorityEntry>> = HashMap::new();
-    let mut category_entries: HashMap<String, Vec<CategoryEntry>> = HashMap::new();
-    let mut generic_entries: Vec<GenericEntry> = Vec::new();
+    let mut priority_entries: HashMap<isize, Vec<Entry>> = HashMap::new();
+    let mut category_entries: HashMap<String, Vec<Entry>> = HashMap::new();
+    let mut generic_entries: Vec<Entry> = Vec::new();
 
     for entry in entries {
-        match entry {
-            Entry::Priority(entry) => {
-                if ! priority_entries.contains_key(&entry.priority) {
-                    priority_entries.insert(entry.priority, vec![]);
+        match entry.data {
+            EntryData::Priority(priority) => {
+                if ! priority_entries.contains_key(&priority) {
+                    priority_entries.insert(priority, vec![]);
                 }
 
-                let vec = priority_entries.get_mut(&entry.priority).unwrap();
+                let vec = priority_entries.get_mut(&priority).unwrap();
                 vec.push(entry);
             },
-            Entry::Category(entry) => {
-                if ! category_entries.contains_key(&entry.category) {
-                    category_entries.insert(entry.category.clone(), vec![]);
+            EntryData::Category(ref category) => {
+                if ! category_entries.contains_key(category) {
+                    category_entries.insert(category.clone(), vec![]);
                 }
 
-                let vec = category_entries.get_mut(&entry.category).unwrap();
+                let vec = category_entries.get_mut(category).unwrap();
                 vec.push(entry);
             },
-            Entry::Generic(entry) => {
+            EntryData::Generic => {
                 generic_entries.push(entry);
             }
         }
     }
 
     print!("# TODOs\n\n");
-
-    let render_entry = |entry: Entry| {
-        // todo refactor structs such that Entry is a struct which contains an enum
-        let (text, location) = match entry {
-            Entry::Priority(entry) => (entry.text, entry.location),
-            Entry::Category(entry) => (entry.text, entry.location),
-            Entry::Generic(entry) => (entry.text, entry.location),
-        };
-
-        if text.len() > 0 {
-            println!("- [ ] {} ({}:{})", text, location.file.to_string_lossy(), location.line);
-        } else {
-            println!("- [ ] {}:{}", location.file.to_string_lossy(), location.line);
-        }
-    };
 
     let mut priority_keys = priority_entries.keys().collect::<Vec<&isize>>();
     priority_keys.sort_by(|a, b| a.partial_cmp(b).unwrap());
@@ -208,7 +191,7 @@ fn render(entries: Vec<Entry>) {
         println!("## {}", priority_notation);
 
         for item in priority_entries.get(priority).unwrap() {
-            render_entry(Entry::Priority(item.clone()));
+            item.render();
         }
 
         println!("");
@@ -221,7 +204,7 @@ fn render(entries: Vec<Entry>) {
         println!("## {}", category);
 
         for item in category_entries.get(category).unwrap() {
-            render_entry(Entry::Category(item.clone()));
+            item.render();
         }
 
         println!("");
@@ -232,7 +215,7 @@ fn render(entries: Vec<Entry>) {
     generic_entries.sort_by(|a, b| a.text.partial_cmp(&b.text).unwrap());
 
     for item in generic_entries {
-        render_entry(Entry::Generic(item.clone()));
+        item.render();
     }
 
 }
@@ -277,45 +260,50 @@ fn generic_test() {
 
     assert_eq!(5, entries.len());
 
-    assert_eq!(Entry::Generic(GenericEntry {
+    assert_eq!(Entry {
+        data: EntryData::Generic,
         text: String::from("foo"),
         location: Location {
             file: path.clone(),
             line: 4,
         }
-    }), entries[0]);
+    }, entries[0]);
 
-    assert_eq!(Entry::Generic(GenericEntry {
+    assert_eq!(Entry {
+        data: EntryData::Generic,
         text: String::from("foo bar"),
         location: Location {
             file: path.clone(),
             line: 5,
         }
-    }), entries[1]);
+    }, entries[1]);
 
-    assert_eq!(Entry::Generic(GenericEntry {
+    assert_eq!(Entry {
+        data: EntryData::Generic,
         text: String::from("baz"),
         location: Location {
             file: path.clone(),
             line: 8,
         }
-    }), entries[2]);
+    }, entries[2]);
 
-    assert_eq!(Entry::Generic(GenericEntry {
+    assert_eq!(Entry {
+        data: EntryData::Generic,
         text: String::from("baz2"),
         location: Location {
             file: path.clone(),
             line: 9,
         }
-    }), entries[3]);
+    }, entries[3]);
 
-    assert_eq!(Entry::Generic(GenericEntry {
+    assert_eq!(Entry {
+        data: EntryData::Generic,
         text: String::from("baz2 todo"),
         location: Location {
             file: path.clone(),
             line: 10,
         }
-    }), entries[4]);
+    }, entries[4]);
 }
 
 #[test]
@@ -341,59 +329,59 @@ fn category_test() {
 
     assert_eq!(6, entries.len());
 
-    assert_eq!(Entry::Category(CategoryEntry {
-        category: String::from("foo"),
+    assert_eq!(Entry {
+        data: EntryData::Category(String::from("foo")),
         text: String::from(""),
         location: Location {
             file: path.clone(),
             line: 4,
         }
-    }), entries[0]);
+    }, entries[0]);
 
-    assert_eq!(Entry::Category(CategoryEntry {
-        category: String::from("bar"),
+    assert_eq!(Entry {
+        data: EntryData::Category(String::from("bar")),
         text: String::from("abc def"),
         location: Location {
             file: path.clone(),
             line: 5,
         }
-    }), entries[1]);
+    }, entries[1]);
 
-    assert_eq!(Entry::Category(CategoryEntry {
-        category: String::from("baz"),
+    assert_eq!(Entry {
+        data: EntryData::Category(String::from("baz")),
         text: String::from("x y"),
         location: Location {
             file: path.clone(),
             line: 7,
         }
-    }), entries[2]);
+    }, entries[2]);
 
-    assert_eq!(Entry::Category(CategoryEntry {
-        category: String::from("baz2"),
+    assert_eq!(Entry {
+        data: EntryData::Category(String::from("baz2")),
         text: String::from("a"),
         location: Location {
             file: path.clone(),
             line: 9,
         }
-    }), entries[3]);
+    }, entries[3]);
 
-    assert_eq!(Entry::Category(CategoryEntry {
-        category: String::from("baz3"),
+    assert_eq!(Entry {
+        data: EntryData::Category(String::from("baz3")),
         text: String::from(""),
         location: Location {
             file: path.clone(),
             line: 10,
         }
-    }), entries[4]);
+    }, entries[4]);
 
-    assert_eq!(Entry::Category(CategoryEntry {
-        category: String::from("baz3"),
+    assert_eq!(Entry {
+        data: EntryData::Category(String::from("baz3")),
         text: String::from("b"),
         location: Location {
             file: path.clone(),
             line: 11,
         }
-    }), entries[5]);
+    }, entries[5]);
 }
 
 #[test]
@@ -422,86 +410,86 @@ fn priority_test() {
 
     assert_eq!(9, entries.len());
 
-    assert_eq!(Entry::Priority(PriorityEntry {
-        priority: -1,
+    assert_eq!(Entry {
+        data: EntryData::Priority(-1),
         text: String::from(""),
         location: Location {
             file: path.clone(),
             line: 4,
         }
-    }), entries[0]);
+    }, entries[0]);
 
-    assert_eq!(Entry::Priority(PriorityEntry {
-        priority: -2,
+    assert_eq!(Entry {
+        data: EntryData::Priority(-2),
         text: String::from("abc"),
         location: Location {
             file: path.clone(),
             line: 5,
         }
-    }), entries[1]);
+    }, entries[1]);
 
-    assert_eq!(Entry::Priority(PriorityEntry {
-        priority: 0,
+    assert_eq!(Entry {
+        data: EntryData::Priority(0),
         text: String::from("abc def"),
         location: Location {
             file: path.clone(),
             line: 6,
         }
-    }), entries[2]);
+    }, entries[2]);
 
-    assert_eq!(Entry::Priority(PriorityEntry {
-        priority: 1,
+    assert_eq!(Entry {
+        data: EntryData::Priority(1),
         text: String::from("foo"),
         location: Location {
             file: path.clone(),
             line: 7,
         }
-    }), entries[3]);
+    }, entries[3]);
 
-    assert_eq!(Entry::Priority(PriorityEntry {
-        priority: 1,
+    assert_eq!(Entry {
+        data: EntryData::Priority(1),
         text: String::from("x y"),
         location: Location {
             file: path.clone(),
             line: 9,
         }
-    }), entries[4]);
+    }, entries[4]);
 
-    assert_eq!(Entry::Priority(PriorityEntry {
-        priority: 0,
+    assert_eq!(Entry {
+        data: EntryData::Priority(0),
         text: String::from("bar"),
         location: Location {
             file: path.clone(),
             line: 11,
         }
-    }), entries[5]);
+    }, entries[5]);
 
-    assert_eq!(Entry::Priority(PriorityEntry {
-        priority: 1,
+    assert_eq!(Entry {
+        data: EntryData::Priority(1),
         text: String::from("a"),
         location: Location {
             file: path.clone(),
             line: 12,
         }
-    }), entries[6]);
+    }, entries[6]);
 
-    assert_eq!(Entry::Priority(PriorityEntry {
-        priority: 2,
+    assert_eq!(Entry {
+        data: EntryData::Priority(2),
         text: String::from(""),
         location: Location {
             file: path.clone(),
             line: 13,
         }
-    }), entries[7]);
+    }, entries[7]);
 
-    assert_eq!(Entry::Priority(PriorityEntry {
-        priority: 3,
+    assert_eq!(Entry {
+        data: EntryData::Priority(3),
         text: String::from("b"),
         location: Location {
             file: path.clone(),
             line: 14,
         }
-    }), entries[8]);
+    }, entries[8]);
 }
 
 #[test]
@@ -518,90 +506,93 @@ fn sample_test_ts() {
 
     assert_eq!(10, entries.len());
 
-    assert_eq!(Entry::Category(CategoryEntry {
-        category: String::from("types"),
+    assert_eq!(Entry {
+        data: EntryData::Category(String::from("types")),
         text: String::from(""),
         location: Location {
             file: filepath.clone(),
             line: 1,
         }
-    }), entries[0]);
+    }, entries[0]);
 
-    assert_eq!(Entry::Category(CategoryEntry {
-        category: String::from("types"),
+    assert_eq!(Entry {
+        data: EntryData::Category(String::from("types")),
         text: String::from("add types"),
         location: Location {
             file: filepath.clone(),
             line: 5,
         }
-    }), entries[1]);
+    }, entries[1]);
 
-    assert_eq!(Entry::Priority(PriorityEntry {
-        priority: -2,
+    assert_eq!(Entry {
+        data: EntryData::Priority(-2),
         text: String::from(""),
         location: Location {
             file: filepath.clone(),
             line: 10,
         }
-    }), entries[2]);
+    }, entries[2]);
 
-    assert_eq!(Entry::Priority(PriorityEntry {
-        priority: -1,
+    assert_eq!(Entry {
+        data: EntryData::Priority(-1),
         text: String::from("add return typehint"),
         location: Location {
             file: filepath.clone(),
             line: 14,
         }
-    }), entries[3]);
+    }, entries[3]);
 
-    assert_eq!(Entry::Priority(PriorityEntry {
-        priority: 0,
+    assert_eq!(Entry {
+        data: EntryData::Priority(0),
         text: String::from("add name typehint"),
         location: Location {
             file: filepath.clone(),
             line: 19,
         }
-    }), entries[4]);
+    }, entries[4]);
 
-    assert_eq!(Entry::Priority(PriorityEntry {
-        priority: 1,
+    assert_eq!(Entry {
+        data: EntryData::Priority(1),
         text: String::from("add return typehint"),
         location: Location {
             file: filepath.clone(),
             line: 23,
         }
-    }), entries[5]);
+    }, entries[5]);
 
-    assert_eq!(Entry::Priority(PriorityEntry {
-        priority: 2,
+    assert_eq!(Entry {
+        data: EntryData::Priority(2),
         text: String::from("add return typehint"),
         location: Location {
             file: filepath.clone(),
             line: 27,
         }
-    }), entries[6]);
+    }, entries[6]);
 
-    assert_eq!(Entry::Generic(GenericEntry {
+    assert_eq!(Entry {
+        data: EntryData::Generic,
         text: String::from(""),
         location: Location {
             file: filepath.clone(),
             line: 31,
         }
-    }), entries[7]);
+    }, entries[7]);
 
-    assert_eq!(Entry::Generic(GenericEntry {
+    assert_eq!(Entry {
+        data: EntryData::Generic,
         text: String::from("generic todo 2"),
         location: Location {
             file: filepath.clone(),
             line: 33,
         }
-    }), entries[8]);
+    }, entries[8]);
 
-    assert_eq!(Entry::Generic(GenericEntry {
+    assert_eq!(Entry {
+        data: EntryData::Generic,
         text: String::from("generic todo 3"),
         location: Location {
             file: filepath.clone(),
             line: 34,
         }
-    }), entries[9]);
+    }, entries[9]);
 }
