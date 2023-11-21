@@ -1,33 +1,34 @@
+use std::collections::HashMap;
 use std::{io, fs};
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 struct Location {
     file: PathBuf,
     line: usize,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 struct PriorityEntry {
     text: String,
     priority: isize,
     location: Location,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 struct CategoryEntry {
     text: String,
     category: String,
     location: Location,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 struct GenericEntry {
     text: String,
     location: Location,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 enum Entry {
     Priority(PriorityEntry),
     Category(CategoryEntry),
@@ -48,7 +49,7 @@ fn scan_string(str: String, filename: PathBuf, entries: &mut Vec<Entry>) {
             // Handles: `todo`, `TODO`, `todo:`, `TODO:`
             // todo `replace` isnt ideal, it should only replace *after* the todo, to avoid merging eg `to:do`
             if word.to_lowercase().replace(':', "") == "todo" {
-                let text_dirty = line.split(word).nth(1).unwrap().replace("*/", "");
+                let text_dirty = line.split_once(word).unwrap().1.replace("*/", "");
                 let text = text_dirty.trim();
 
                 entries.push(Entry::Generic(GenericEntry {
@@ -64,7 +65,7 @@ fn scan_string(str: String, filename: PathBuf, entries: &mut Vec<Entry>) {
 
             if word.contains('@') {
                 let category = word.split('@').nth(1).unwrap();
-                let text_dirty = line.split(word).nth(1).unwrap().replace("*/", "");
+                let text_dirty = line.split_once(word).unwrap().1.replace("*/", "");
                 let text = text_dirty.trim();
 
                 entries.push(Entry::Category(CategoryEntry {
@@ -98,7 +99,7 @@ fn scan_string(str: String, filename: PathBuf, entries: &mut Vec<Entry>) {
                     break; // incorrect syntax like todo11
                 }
 
-                let text_dirty = line.split(word).nth(1).unwrap().replace("*/", "");
+                let text_dirty = line.split_once(word).unwrap().1.replace("*/", "");
                 let text = text_dirty.trim();
 
                 entries.push(Entry::Priority(PriorityEntry {
@@ -114,6 +115,7 @@ fn scan_string(str: String, filename: PathBuf, entries: &mut Vec<Entry>) {
     }
 }
 
+// todo test this using sample.ts
 fn scan_file(path: &Path, entries: &mut Vec<Entry>) -> io::Result<()> {
     match std::fs::read_to_string(path) {
         Ok(str) => scan_string(str, path.to_path_buf(), entries),
@@ -138,14 +140,111 @@ fn scan_dir(path: &Path, entries: &mut Vec<Entry>) -> io::Result<()> {
     Ok(())
 }
 
+fn render(entries: Vec<Entry>) {
+    let mut priority_entries: HashMap<isize, Vec<PriorityEntry>> = HashMap::new();
+    let mut category_entries: HashMap<String, Vec<CategoryEntry>> = HashMap::new();
+    let mut generic_entries: Vec<GenericEntry> = Vec::new();
+
+    for entry in entries {
+        match entry {
+            Entry::Priority(entry) => {
+                if ! priority_entries.contains_key(&entry.priority) {
+                    priority_entries.insert(entry.priority, vec![]);
+                }
+
+                let vec = priority_entries.get_mut(&entry.priority).unwrap();
+                vec.push(entry);
+            },
+            Entry::Category(entry) => {
+                if ! category_entries.contains_key(&entry.category) {
+                    category_entries.insert(entry.category.clone(), vec![]);
+                }
+
+                let vec = category_entries.get_mut(&entry.category).unwrap();
+                vec.push(entry);
+            },
+            Entry::Generic(entry) => {
+                generic_entries.push(entry);
+            }
+        }
+    }
+
+    print!("# TODOs\n\n");
+
+    let item_text = |x: &String| {
+        if x.len() > 0 {
+            return format!("{x} ");
+        }
+
+        return "".to_string();
+    };
+
+    let mut priority_keys = priority_entries.keys().collect::<Vec<&isize>>();
+    priority_keys.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
+    for priority in priority_keys {
+        let priority_notation = match priority.cmp(&0) {
+            std::cmp::Ordering::Less => {
+                let mut str = "todo0".to_string();
+
+                // todo0 -> 0
+                // todo00 -> -1
+                // Therefore: 'todo0' + priority.abs() * '0'
+                str.push_str(String::from_utf8(vec![b'0'; priority.abs() as usize]).unwrap().as_str());
+
+                str
+            },
+            std::cmp::Ordering::Equal => "todo0".to_string(),
+            std::cmp::Ordering::Greater => format!("todo{}", priority),
+        };
+
+        println!("## {}", priority_notation);
+
+        for item in priority_entries.get(priority).unwrap() {
+            println!("- [ ] {}({}:{})", item_text(&item.text), item.location.file.to_string_lossy(), item.location.line);
+        }
+
+        println!("");
+    }
+
+    let mut category_keys = category_entries.keys().collect::<Vec<&String>>();
+    category_keys.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
+    for category in category_keys {
+        println!("## {}", category);
+
+        for item in category_entries.get(category).unwrap() {
+            println!("- [ ] {}({}:{})", item_text(&item.text), item.location.file.to_string_lossy(), item.location.line);
+        }
+
+        println!("");
+    }
+
+    println!("## Other");
+
+    generic_entries.sort_by(|a, b| a.text.partial_cmp(&b.text).unwrap());
+
+    for item in generic_entries {
+        println!("- [ ] {}({}:{})", item_text(&item.text), item.location.file.to_string_lossy(), item.location.line);
+    }
+
+}
+
 fn main() {
-    let root_dir: PathBuf = std::env::current_dir().unwrap(); // todo@CLI make the root dir configurable
+    let args = std::env::args();
+    let mut root_dir: PathBuf = std::env::current_dir().unwrap();
+
+    if args.len() > 1 {
+        for arg in args.skip(1) {
+            root_dir.push(arg);
+        }
+    }
 
     let mut entries: Vec<Entry> = vec![];
 
     scan_dir(root_dir.as_path(), &mut entries).unwrap();
 
-    dbg!(entries);
+    render(entries);
 }
 
 #[test]
@@ -154,7 +253,7 @@ fn generic_test() {
         1
         2
         // todo foo
-        /* TODO: bar */
+        /* TODO: foo bar */
         /*
 
         * TODO baz
@@ -180,7 +279,7 @@ fn generic_test() {
     }), entries[0]);
 
     assert_eq!(Entry::Generic(GenericEntry {
-        text: String::from("bar"),
+        text: String::from("foo bar"),
         location: Location {
             file: path.clone(),
             line: 5,
@@ -396,4 +495,106 @@ fn priority_test() {
             line: 14,
         }
     }), entries[8]);
+}
+
+#[test]
+fn sample_test_ts() {
+    let mut entries: Vec<Entry> = vec![];
+
+    let mut path = std::env::current_dir().unwrap();
+    path.push("samples");
+
+    let mut filepath = path.clone();
+    filepath.push("1.ts");
+
+    scan_dir(path.as_path(), &mut entries).unwrap();
+
+    assert_eq!(10, entries.len());
+
+    assert_eq!(Entry::Category(CategoryEntry {
+        category: String::from("types"),
+        text: String::from(""),
+        location: Location {
+            file: filepath.clone(),
+            line: 1,
+        }
+    }), entries[0]);
+
+    assert_eq!(Entry::Category(CategoryEntry {
+        category: String::from("types"),
+        text: String::from("add types"),
+        location: Location {
+            file: filepath.clone(),
+            line: 5,
+        }
+    }), entries[1]);
+
+    assert_eq!(Entry::Priority(PriorityEntry {
+        priority: -2,
+        text: String::from(""),
+        location: Location {
+            file: filepath.clone(),
+            line: 10,
+        }
+    }), entries[2]);
+
+    assert_eq!(Entry::Priority(PriorityEntry {
+        priority: -1,
+        text: String::from("add return typehint"),
+        location: Location {
+            file: filepath.clone(),
+            line: 14,
+        }
+    }), entries[3]);
+
+    assert_eq!(Entry::Priority(PriorityEntry {
+        priority: 0,
+        text: String::from("add name typehint"),
+        location: Location {
+            file: filepath.clone(),
+            line: 19,
+        }
+    }), entries[4]);
+
+    assert_eq!(Entry::Priority(PriorityEntry {
+        priority: 1,
+        text: String::from("add return typehint"),
+        location: Location {
+            file: filepath.clone(),
+            line: 23,
+        }
+    }), entries[5]);
+
+    assert_eq!(Entry::Priority(PriorityEntry {
+        priority: 2,
+        text: String::from("add return typehint"),
+        location: Location {
+            file: filepath.clone(),
+            line: 27,
+        }
+    }), entries[6]);
+
+    assert_eq!(Entry::Generic(GenericEntry {
+        text: String::from(""),
+        location: Location {
+            file: filepath.clone(),
+            line: 31,
+        }
+    }), entries[7]);
+
+    assert_eq!(Entry::Generic(GenericEntry {
+        text: String::from("generic todo 2"),
+        location: Location {
+            file: filepath.clone(),
+            line: 33,
+        }
+    }), entries[8]);
+
+    assert_eq!(Entry::Generic(GenericEntry {
+        text: String::from("generic todo 3"),
+        location: Location {
+            file: filepath.clone(),
+            line: 34,
+        }
+    }), entries[9]);
 }

@@ -27,3 +27,9 @@ function greet2(name: string) { // todo1 add return typehint
 function echo(str: string) { // todo2 add return typehint
     console.log(str);
 }
+
+// console.log('foo'); // todo
+
+// todo generic todo 2
+// TODO: generic todo 3
+// todo11 invalid todo
