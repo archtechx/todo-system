@@ -129,6 +129,19 @@ fn scan_dir(path: &Path, entries: &mut Vec<Entry>) -> io::Result<()> {
         let path = entry.path();
 
         if path.is_dir() {
+            // todo make these configurable
+            if path.ends_with("node_modules") {
+                continue;
+            }
+
+            if path.ends_with("vendor") {
+                continue;
+            }
+
+            if path.ends_with(".git") {
+                continue;
+            }
+
             scan_dir(path.as_path(), entries)?
         } else {
             scan_file(path.as_path(), entries)?
