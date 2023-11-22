@@ -136,3 +136,16 @@ Notes:
 - `node_modules/` (for npm) and `vendor/` (for composer) are ignored by default
 - paths starting with `.` are **always** ignored
 - `--exclude`s are relative to the current working directory, not passed paths (including default excludes mentioned above). If you're running the script for another folder and want to exclude folders there, type out the path in `--exclude`
+
+To omit ANSI formatting and get raw markdown output, set `NO_COLOR=1` or `TERM=dumb`.
+
+### Installation
+
+There are no downloadable builds at the moment. To compile the tool manually:
+1. Set up Rust locally https://www.rust-lang.org/tools/install
+2. Clone the repo
+3. `cargo build --release`
+4. The binary (`todos`) will appear will `target/release`. Add it to your PATH or create a bash alias:
+   ```sh
+   alias todos="/path/to/todos"
+   ```

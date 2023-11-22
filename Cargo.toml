@@ -1,5 +1,5 @@
 [package]
-name = "todo-system"
+name = "todos"
 version = "0.1.0"
 edition = "2021"
 authors = ["Samuel Štancl <samuel@archte.ch>"]
@@ -9,3 +9,4 @@ description = "An intuitive system for organizing TODOs in code"
 
 [dependencies]
 clap = { version = "4.4.8", features = ["derive"] }
+termcolor = "1.4.0"
