@@ -17,21 +17,22 @@ struct Args {
     #[arg(short, long, default_value = "README.md")]
     readme: String,
 
-    // Path to your todo.md file
+    /// Path to your todo.md file
     #[arg(short, long, default_value = "todo.md")]
     todos: String,
 
-    // Paths to search
+    /// Paths to search
     #[arg(default_values_t = Vec::from([".".to_string()]))]
     paths: Vec<String>,
 
-    // Paths to exclude
+    /// Paths to exclude
     #[arg(short, long, default_values_t = Vec::from([
         "node_modules".to_string(),
         "vendor".to_string(),
     ]))]
     exclude: Vec<String>,
 
+    /// Show stats after listing TODOs
     #[arg(short, long, default_value_t = false)]
     verbose: bool,
 }
