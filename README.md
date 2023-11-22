@@ -1,14 +1,16 @@
 # An intuitive system for organizing TODOs in code
 
 ## Why?
-- In-code TODOs are often more useful than tasks in project management apps, as they're co-localized with the relevant code
-- In many projects, they grow out of control (everything is just a "TODO" with nothing indicating priority)
+- In-code TODOs are often more useful than tasks in project management apps, as they're co-located with the relevant code
+- In many projects, they grow out of control (everything is just a "TODO" with nothing indicating priority or category)
 - Working on related tasks at the same time makes more sense than context switching between different tasks. However, proximity in code doesn't necessarily correlate to "task proximity". Two TODOs in the same file may be two completely different tasks, but two TODOs across different files may be very similar
-- There's a difference between TODOs written as quick notes while context switching between different parts of the code *as part of a single task*, and long term TODOs that are part of the code
+- There's a difference between TODOs written as quick notes while context switching between different parts of the code *while working on a single task*, and long term TODOs that are part of the code
 
 ## Solution
 
-Numbered (priority) todos, indicating what needs to be solved *now* and in what order. And category todos grouping tasks into categories.
+Numbered (priority) todos, indicating what needs to be solved *now* and in what order.
+
+And category todos grouping tasks into categories.
 
 ## Spec
 
@@ -35,7 +37,7 @@ When making a lot of changes in a single commit, this may mean resolving all pri
 In practice, the usage may look like this:
 - you're working on `x`, and as part of that you need to work on `y`
 - there are still some things unresolved in `x`, but you need to work on `y` to move forward. You leave a `todo1` in the `x` part of the code
-- while working on `y`, you leave a `todo0` for something that needs to be resolved
+- while working on `y`, you leave a `todo0` for something that needs to be resolved before returning to `x`
 - while working on that, you notice another thing that needs to be solved, even before the `todo0`. You leave a `todo00`
 
 ### Category todos
@@ -65,11 +67,45 @@ todo refactor
 
 In some larger projects, we also keep track of TODOs in markdown files. This is useful when the task is more abstract and not immediately related to any given piece of code.
 
+We follow this convention:
+
+`README.md`
+
+```md
+# Project name
+
+## Some section
+
+...
+
+## TODOs
+
+- foo
+- bar
+```
+
+And in larger projects, we have often have a dedicated file for TODOs:
+
+`todo.md`
+
+```md
+- Generic todo 1
+- Generic todo 2
+
+## Category 1
+- foo
+- bar
+
+## Category 2
+- abc
+- def
+```
+
 ## Validating code
 
-As a general rule, in our code priority todos **may not be pushed into master**. They need to be resolved before committing (ideally) or before merging PRs (when working on larger things).
+As a general rule, in our code, priority todos **may not be pushed into master**. They need to be resolved before committing (ideally) or before merging PRs (when working on larger things).
 
-To do this automatically, you can set up a simple GitHub Action:
+To validate this automatically, you can set up a simple GitHub Action:
 
 ```yaml
 on: [push, pull_request]
@@ -95,7 +131,7 @@ jobs:
 
 The benefit of TODOs in code is that they're searchable, and searching `todo` makes *any* kind of todo show up (since it doesn't matter whether it's followed by a number, an at sign, or whitespace).
 
-That said, this repo includes a simple CLI tool written in Rust for getting an easy-to-read, Markdown-formatted list of all todos in a project.
+That said, this repo includes a simple CLI tool written in Rust for getting an easy-to-read, ANSI-colored, Markdown-formatted list of all todos in a project.
 
 Usage:
 ```
@@ -133,8 +169,8 @@ Output:
 (without the HTML comments).
 
 Notes:
-- `node_modules/` (for npm) and `vendor/` (for composer) are ignored by default
-- paths starting with `.` are **always** ignored
+- `node_modules/` (for npm) and `vendor/` (for composer) are excluded by default
+- paths starting with `.` are **always** excluded
 - `--exclude`s are relative to the current working directory, not passed paths (including default excludes mentioned above). If you're running the script for another folder and want to exclude folders there, type out the path in `--exclude`
 - Passing any excludes overrides the default excludes, so if you want to *add* to the list of excludes, you need to re-define the default ones as well (e.g. `-e node_modules`)
 
