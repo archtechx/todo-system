@@ -54,7 +54,7 @@ todo@testing test this
 
 ### Generic todos
 
-Any todos that don't fall into the two categories above (i.e. their syntax isn't `todo{number}` or `todo@{description}`).
+Any todos that don't fall into the two categories above (i.e. their syntax isn't `todo{number}` or `todo@{category}`).
 
 ```
 TODO: Fix this
