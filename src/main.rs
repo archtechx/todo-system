@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use clap::Parser;
 use crate::entries::Entry;
 use crate::render::render_entries;
-use crate::scan::{Stats, scan_dir};
+use crate::scan::{Stats, scan_dir, scan_todo_file};
 
 pub mod scan;
 pub mod render;
@@ -13,11 +13,11 @@ pub mod entries;
 #[command(author, version, about, long_about = None)]
 struct Args {
     /// Path to your README.md file
-    #[arg(short, long, default_value = "")]
+    #[arg(short, long, default_value = "README.md")]
     readme: String,
 
     // Path to your todo.md file
-    #[arg(short, long, default_value = "")]
+    #[arg(short, long, default_value = "todo.md")]
     todos: String,
 
     // Paths to search
@@ -56,17 +56,28 @@ fn main() {
         excludes.push(path);
     }
 
-    // todo@real logic for readme.md and todos.md
+    // todo@real logic for readme.md
 
     let mut entries: Vec<Entry> = vec![];
     let mut stats = Stats::new();
 
-    scan_dir(root_dir.as_path(), &mut entries, &excludes, &mut stats).unwrap();
+    for p in &paths {
+        scan_dir(p.as_path(), &mut entries, &excludes, &mut stats).unwrap();
+    }
+
+    let mut todos_path = root_dir.clone();
+    todos_path.push(&args.todos);
+
+    if todos_path.exists() {
+        scan_todo_file(&todos_path, &mut entries).unwrap();
+    }
 
     render_entries(entries);
 
     if args.verbose {
         eprint!("\n\n");
         stats.print();
+        eprintln!("Paths: {:?}", &paths);
+        eprintln!("Excludes: {:?}", &excludes);
     }
 }
