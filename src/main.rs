@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::{io, fs};
 use std::path::{Path, PathBuf};
+use clap::Parser;
 
 #[derive(Debug, PartialEq, Clone)]
 struct Location {
@@ -32,6 +33,25 @@ impl Entry {
     }
 }
 
+struct Stats {
+    visited_folders: usize,
+    visited_files: usize,
+}
+
+impl Stats {
+    fn new() -> Stats {
+        Stats {
+            visited_folders: 0,
+            visited_files: 0,
+        }
+    }
+
+    fn print(&self) {
+        eprintln!("[INFO] Visited folders: {}", self.visited_folders);
+        eprintln!("[INFO] Visited files: {}", self.visited_files);
+    }
+}
+
 fn scan_string(str: String, filename: PathBuf, entries: &mut Vec<Entry>) {
     for (line_num, line) in str.lines().enumerate() {
         if ! line.to_lowercase().contains("todo") {
@@ -44,7 +64,7 @@ fn scan_string(str: String, filename: PathBuf, entries: &mut Vec<Entry>) {
             }
 
             // Handles: `todo`, `TODO`, `todo:`, `TODO:`
-            // todo `replace` isnt ideal, it should only replace *after* the todo, to avoid merging eg `to:do`
+            // todo@real `replace` isnt ideal, it should only replace *after* the todo, to avoid merging eg `to:do`
             if word.to_lowercase().replace(':', "") == "todo" {
                 let text_dirty = line.split_once(word).unwrap().1.replace("*/", "");
                 let text = text_dirty.trim();
@@ -113,7 +133,6 @@ fn scan_string(str: String, filename: PathBuf, entries: &mut Vec<Entry>) {
     }
 }
 
-// todo test this using sample.ts
 fn scan_file(path: &Path, entries: &mut Vec<Entry>) -> io::Result<()> {
     match std::fs::read_to_string(path) {
         Ok(str) => scan_string(str, path.to_path_buf(), entries),
@@ -123,27 +142,27 @@ fn scan_file(path: &Path, entries: &mut Vec<Entry>) -> io::Result<()> {
     Ok(())
 }
 
-fn scan_dir(path: &Path, entries: &mut Vec<Entry>) -> io::Result<()> {
-    for entry in fs::read_dir(path)? {
+fn scan_dir(path: &Path, entries: &mut Vec<Entry>, excludes: &Vec<PathBuf>, stats: &mut Stats) -> io::Result<()> {
+    stats.visited_folders += 1;
+
+    'entry: for entry in fs::read_dir(path)? {
         let entry = entry?;
         let path = entry.path();
 
+        if path.components().last().unwrap().as_os_str().to_string_lossy().starts_with('.') {
+            continue;
+        }
+
         if path.is_dir() {
-            // todo make these configurable
-            if path.ends_with("node_modules") {
-                continue;
+            for exclude in excludes {
+                if path == *exclude {
+                    continue 'entry;
+                }
             }
 
-            if path.ends_with("vendor") {
-                continue;
-            }
-
-            if path.ends_with(".git") {
-                continue;
-            }
-
-            scan_dir(path.as_path(), entries)?
+            scan_dir(path.as_path(), entries, excludes, stats)?
         } else {
+            stats.visited_files += 1;
             scan_file(path.as_path(), entries)?
         }
     }
@@ -233,21 +252,66 @@ fn render(entries: Vec<Entry>) {
 
 }
 
-fn main() {
-    let args = std::env::args();
-    let mut root_dir: PathBuf = std::env::current_dir().unwrap();
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    /// Path to your README.md file
+    #[arg(short, long, default_value = "")]
+    readme: String,
 
-    if args.len() > 1 {
-        for arg in args.skip(1) {
-            root_dir.push(arg);
-        }
+    // Path to your todo.md file
+    #[arg(short, long, default_value = "")]
+    todos: String,
+
+    // Paths to search
+    #[arg(default_values_t = Vec::from([".".to_string()]))]
+    paths: Vec<String>,
+
+    // Paths to exclude
+    #[arg(short, long, default_values_t = Vec::from([
+        "node_modules".to_string(),
+        "vendor".to_string(),
+    ]))]
+    exclude: Vec<String>,
+
+    #[arg(short, long, default_value_t = false)]
+    verbose: bool,
+}
+
+fn main() {
+    let args = Args::parse();
+
+    let root_dir: PathBuf = std::env::current_dir().unwrap();
+    let mut paths: Vec<PathBuf> = vec![];
+    let mut excludes: Vec<PathBuf> = vec![];
+
+    for p in args.paths {
+        let mut path = root_dir.clone();
+        path.push(p);
+
+        paths.push(path);
     }
 
-    let mut entries: Vec<Entry> = vec![];
+    for exclude in args.exclude {
+        let mut path = root_dir.clone();
+        path.push(exclude);
 
-    scan_dir(root_dir.as_path(), &mut entries).unwrap();
+        excludes.push(path);
+    }
+
+    // todo@real logic for readme.md and todos.md
+
+    let mut entries: Vec<Entry> = vec![];
+    let mut stats = Stats::new();
+
+    scan_dir(root_dir.as_path(), &mut entries, &excludes, &mut stats).unwrap();
 
     render(entries);
+
+    if args.verbose {
+        eprint!("\n\n");
+        stats.print();
+    }
 }
 
 #[test]
@@ -515,7 +579,10 @@ fn sample_test_ts() {
     let mut filepath = path.clone();
     filepath.push("1.ts");
 
-    scan_dir(path.as_path(), &mut entries).unwrap();
+    let excludes: Vec<PathBuf> = vec![];
+    let mut stats = Stats::new();
+
+    scan_dir(path.as_path(), &mut entries, &excludes, &mut stats).unwrap();
 
     assert_eq!(10, entries.len());
 

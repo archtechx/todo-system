@@ -99,7 +99,7 @@ That said, this repo includes a simple CLI tool written in Rust for getting an e
 
 Usage:
 ```
-todos src/
+todos --exclude node_modules src/
 ```
 
 Output:
@@ -131,3 +131,8 @@ Output:
 ```
 
 (without the HTML comments).
+
+Notes:
+- `node_modules/` (for npm) and `vendor/` (for composer) are ignored by default
+- paths starting with `.` are **always** ignored
+- `--exclude`s are relative to the current working directory, not passed paths (including default excludes mentioned above). If you're running the script for another folder and want to exclude folders there, type out the path in `--exclude`
