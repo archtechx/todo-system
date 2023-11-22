@@ -2,6 +2,8 @@ use std::io;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+const PRIORITY_CHARS: [char; 10] = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+
 use crate::entries::{Entry, EntryData, Location};
 
 pub struct Stats {
@@ -80,9 +82,7 @@ pub fn scan_string(str: String, filename: PathBuf, entries: &mut Vec<Entry>) {
                 break;
             }
 
-            let priority_chars = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-
-            if word.chars().any(|ch| priority_chars.contains(&ch)) {
+            if word.chars().any(|ch| PRIORITY_CHARS.contains(&ch)) {
                 if let Some(priority) = parse_priority(word) {
                     entries.push(Entry {
                         text: text.to_string(),
@@ -140,7 +140,6 @@ pub fn scan_dir(path: &Path, entries: &mut Vec<Entry>, excludes: &Vec<PathBuf>, 
 pub fn scan_todo_file(path: &Path, entries: &mut Vec<Entry>) -> io::Result<()> {
     let str = fs::read_to_string(path)?;
     let mut current_category: Option<&str> = None;
-    let priority_chars = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
 
     // This can produce:
     // - generic todos (above any category)
@@ -158,7 +157,7 @@ pub fn scan_todo_file(path: &Path, entries: &mut Vec<Entry>) -> io::Result<()> {
         }
 
         for word in line.split_whitespace() {
-            if word.to_lowercase().starts_with("todo") && word.chars().any(|ch| priority_chars.contains(&ch)) {
+            if word.to_lowercase().starts_with("todo") && word.chars().any(|ch| PRIORITY_CHARS.contains(&ch)) {
                 if let Some(priority) = parse_priority(word) {
                     entries.push(Entry {
                         text: line.split_once(word).unwrap().1.trim().trim_end_matches("*/").trim().to_string(),
@@ -191,6 +190,65 @@ pub fn scan_todo_file(path: &Path, entries: &mut Vec<Entry>) -> io::Result<()> {
 
         entries.push(Entry {
             text,
+            location: Location {
+                file: path.to_path_buf(),
+                line: line_num + 1,
+            },
+            data: EntryData::Generic,
+        });
+    }
+
+    Ok(())
+}
+
+pub fn scan_readme_file(path: &Path, entries: &mut Vec<Entry>) -> io::Result<()> {
+    let str = fs::read_to_string(path)?;
+    let mut in_todo_section = false;
+
+    // This can produce:
+    // - generic todos (above any category)
+    // - catgory todos (below a ## category heading)
+    // - priority todos (priority keyword part of the line)
+    'line: for (line_num, line) in str.lines().enumerate() {
+        if line.starts_with('#') {
+            let section = line.split_once("# ").unwrap().1;
+            let cleaned_section = section.to_lowercase().trim_end_matches(':').trim().to_string();
+
+            if cleaned_section == "todo" || cleaned_section == "todos" {
+                in_todo_section = true;
+            }
+
+            continue;
+        }
+
+        if ! in_todo_section {
+            continue;
+        }
+
+        if ! line.starts_with('-') {
+            continue;
+        }
+
+        for word in line.split_whitespace() {
+            if word.to_lowercase().starts_with("todo") && word.chars().any(|ch| PRIORITY_CHARS.contains(&ch)) {
+                if let Some(priority) = parse_priority(word) {
+                    entries.push(Entry {
+                        text: line.split_once(word).unwrap().1.trim().trim_end_matches("*/").trim().to_string(),
+                        location: Location {
+                            file: path.to_path_buf(),
+                            line: line_num + 1,
+                        },
+                        data: EntryData::Priority(priority),
+                    });
+                }
+
+                continue 'line;
+            }
+        }
+
+        // README.md can only have priority entries and generic entries
+        entries.push(Entry {
+            text: line.trim_start_matches("- [ ] ").trim_start_matches("- ").to_string(),
             location: Location {
                 file: path.to_path_buf(),
                 line: line_num + 1,
@@ -643,4 +701,53 @@ fn todo_file_test() {
             line: 12,
         }
     }, entries[7]);
+}
+
+#[test]
+fn readme_file_test() {
+    let mut entries: Vec<Entry> = vec![];
+
+    let mut path = std::env::current_dir().unwrap();
+    path.push("samples");
+    path.push("README.md");
+
+    scan_readme_file(path.as_path(), &mut entries).unwrap();
+
+    assert_eq!(4, entries.len());
+
+    assert_eq!(Entry {
+        data: EntryData::Generic,
+        text: String::from("abc"),
+        location: Location {
+            file: path.clone(),
+            line: 19,
+        }
+    }, entries[0]);
+
+    assert_eq!(Entry {
+        data: EntryData::Priority(0),
+        text: String::from("def"),
+        location: Location {
+            file: path.clone(),
+            line: 20,
+        }
+    }, entries[1]);
+
+    assert_eq!(Entry {
+        data: EntryData::Generic,
+        text: String::from("bar"),
+        location: Location {
+            file: path.clone(),
+            line: 21,
+        }
+    }, entries[2]);
+
+    assert_eq!(Entry {
+        data: EntryData::Generic,
+        text: String::from("baz"),
+        location: Location {
+            file: path.clone(),
+            line: 22,
+        }
+    }, entries[3]);
 }

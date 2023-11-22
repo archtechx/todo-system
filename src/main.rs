@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use clap::Parser;
+use scan::scan_readme_file;
 use crate::entries::Entry;
 use crate::render::render_entries;
 use crate::scan::{Stats, scan_dir, scan_todo_file};
@@ -44,7 +45,12 @@ fn main() {
 
     for p in args.paths {
         let mut path = root_dir.clone();
-        path.push(p);
+
+        if p != "." {
+            // This isn't necessary and the code works just fine without it
+            // but it adds unnecessary /./ to the paths in the generated output.
+            path.push(p);
+        }
 
         paths.push(path);
     }
@@ -55,8 +61,6 @@ fn main() {
 
         excludes.push(path);
     }
-
-    // todo@real logic for readme.md
 
     let mut entries: Vec<Entry> = vec![];
     let mut stats = Stats::new();
@@ -70,6 +74,13 @@ fn main() {
 
     if todos_path.exists() {
         scan_todo_file(&todos_path, &mut entries).unwrap();
+    }
+
+    let mut readme_path = root_dir.clone();
+    readme_path.push(&args.readme);
+
+    if readme_path.exists() {
+        scan_readme_file(&readme_path, &mut entries).unwrap();
     }
 
     render_entries(entries);

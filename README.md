@@ -136,6 +136,19 @@ Notes:
 - `node_modules/` (for npm) and `vendor/` (for composer) are ignored by default
 - paths starting with `.` are **always** ignored
 - `--exclude`s are relative to the current working directory, not passed paths (including default excludes mentioned above). If you're running the script for another folder and want to exclude folders there, type out the path in `--exclude`
+- Passing any excludes overrides the default excludes, so if you want to *add* to the list of excludes, you need to re-define the default ones as well (e.g. `-e node_modules`)
+
+The tool also scans a todo.md file (path can be provided using `--todos`):
+- all TODOs have to be list items (`- foo` or `- [ ] foo`)
+- any TODOs *above* the first heading are considered generic TODOs
+- any TODOs under a heading are considered category TODOs, with the heading being the category name
+- any TODOs with numbers are added to the list of priority TODOs
+
+Scanning TODOs in a README.md file is also supported:
+- all TODOs have to be list items (`- foo` or `- [ ] foo`)
+- they have to be directly under a `TODO[s:]` (lower or uppercase) heading
+
+See the `samples/` folder for examples.
 
 To omit ANSI formatting and get raw markdown output, set `NO_COLOR=1` or `TERM=dumb`.
 
