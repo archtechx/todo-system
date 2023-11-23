@@ -45,6 +45,7 @@ fn clean_line<'a>(line: &'a str, delimiter_word: &str) -> &'a str {
         .trim()
         .trim_end_matches("*/")
         .trim_end_matches("-->")
+        .trim_end_matches("--}}")
         .trim();
 }
 
@@ -128,13 +129,13 @@ pub fn scan_dir(path: &Path, entries: &mut Vec<Entry>, excludes: &Vec<PathBuf>, 
             continue;
         }
 
-        if path.is_dir() {
-            for exclude in excludes {
-                if path == *exclude {
-                    continue 'entry;
-                }
+        for exclude in excludes {
+            if path == *exclude {
+                continue 'entry;
             }
+        }
 
+        if path.is_dir() {
             scan_dir(path.as_path(), entries, excludes, stats)?
         } else {
             stats.visited_files += 1;

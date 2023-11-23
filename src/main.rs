@@ -39,10 +39,13 @@ struct Args {
 
 fn main() {
     let args = Args::parse();
-
     let root_dir: PathBuf = std::env::current_dir().unwrap();
+
     let mut paths: Vec<PathBuf> = vec![];
     let mut excludes: Vec<PathBuf> = vec![];
+
+    let mut entries: Vec<Entry> = vec![];
+    let mut stats = Stats::new();
 
     for p in args.paths {
         let mut path = root_dir.clone();
@@ -53,7 +56,9 @@ fn main() {
             path.push(p);
         }
 
-        paths.push(path);
+        if path.exists() {
+            paths.push(path);
+        }
     }
 
     for exclude in args.exclude {
@@ -63,25 +68,26 @@ fn main() {
         excludes.push(path);
     }
 
-    let mut entries: Vec<Entry> = vec![];
-    let mut stats = Stats::new();
-
-    for p in &paths {
-        scan_dir(p.as_path(), &mut entries, &excludes, &mut stats).unwrap();
-    }
-
     let mut todos_path = root_dir.clone();
     todos_path.push(&args.todos);
-
-    if todos_path.exists() {
-        scan_todo_file(&todos_path, &mut entries).unwrap();
-    }
 
     let mut readme_path = root_dir.clone();
     readme_path.push(&args.readme);
 
+    if todos_path.exists() {
+        excludes.push(todos_path.clone());
+
+        scan_todo_file(&todos_path, &mut entries).unwrap();
+    }
+
     if readme_path.exists() {
+        excludes.push(readme_path.clone());
+
         scan_readme_file(&readme_path, &mut entries).unwrap();
+    }
+
+    for p in &paths {
+        scan_dir(p.as_path(), &mut entries, &excludes, &mut stats).unwrap();
     }
 
     render_entries(entries);
@@ -91,5 +97,7 @@ fn main() {
         stats.print();
         eprintln!("Paths: {:?}", &paths);
         eprintln!("Excludes: {:?}", &excludes);
+        eprintln!("todo.md: {:?}", &todos_path);
+        eprintln!("readme.md: {:?}", &readme_path);
     }
 }
