@@ -4,8 +4,8 @@
 
 ## High priority
 - todo0 a
-- foo
-- [ ] bar
+    - foo
+    - [ ] bar
 
 ## Responsivity
 - abc

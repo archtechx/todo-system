@@ -11,12 +11,12 @@ abc
 def
 
 - foo
-- baz
+    - baz
 - [ ] baz
 
 ## TODOs
 
 - abc
-- todo0 def
+    - todo0 def
 - [ ] bar
-- [ ] baz
+    - [ ] baz

@@ -161,7 +161,7 @@ pub fn scan_todo_file(path: &Path, entries: &mut Vec<Entry>) -> io::Result<()> {
             continue;
         }
 
-        if ! line.starts_with('-') {
+        if ! line.trim_start().starts_with('-') {
             continue;
         }
 
@@ -182,7 +182,7 @@ pub fn scan_todo_file(path: &Path, entries: &mut Vec<Entry>) -> io::Result<()> {
             }
         }
 
-        let text = line.trim_start_matches("- [ ] ").trim_start_matches("- ").to_string();
+        let text = line.trim_start().trim_start_matches("- [ ] ").trim_start_matches("- ").to_string();
 
         if let Some(category) = current_category {
             entries.push(Entry {
@@ -234,7 +234,7 @@ pub fn scan_readme_file(path: &Path, entries: &mut Vec<Entry>) -> io::Result<()>
             continue;
         }
 
-        if ! line.starts_with('-') {
+        if ! line.trim_start().starts_with('-') {
             continue;
         }
 
@@ -257,7 +257,7 @@ pub fn scan_readme_file(path: &Path, entries: &mut Vec<Entry>) -> io::Result<()>
 
         // README.md can only have priority entries and generic entries
         entries.push(Entry {
-            text: line.trim_start_matches("- [ ] ").trim_start_matches("- ").to_string(),
+            text: line.trim_start().trim_start_matches("- [ ] ").trim_start_matches("- ").to_string(),
             location: Location {
                 file: path.to_path_buf(),
                 line: line_num + 1,
