@@ -40,6 +40,14 @@ fn parse_priority(word: &str) -> Option<isize> {
     }
 }
 
+fn clean_line<'a>(line: &'a str, delimiter_word: &str) -> &'a str {
+    return line.split_once(delimiter_word).unwrap().1
+        .trim()
+        .trim_end_matches("*/")
+        .trim_end_matches("-->")
+        .trim();
+}
+
 pub fn scan_string(str: String, filename: PathBuf, entries: &mut Vec<Entry>) {
     for (line_num, line) in str.lines().enumerate() {
         if ! line.to_lowercase().contains("todo") {
@@ -51,7 +59,7 @@ pub fn scan_string(str: String, filename: PathBuf, entries: &mut Vec<Entry>) {
                 continue;
             }
 
-            let text = line.split_once(word).unwrap().1.trim().trim_end_matches("*/").trim();
+            let text = clean_line(line, word);
 
             // Handles: `todo`, `TODO`, `todo:`, `TODO:`
             if word.to_lowercase().trim_end_matches(':') == "todo" {
@@ -160,7 +168,7 @@ pub fn scan_todo_file(path: &Path, entries: &mut Vec<Entry>) -> io::Result<()> {
             if word.to_lowercase().starts_with("todo") && word.chars().any(|ch| PRIORITY_CHARS.contains(&ch)) {
                 if let Some(priority) = parse_priority(word) {
                     entries.push(Entry {
-                        text: line.split_once(word).unwrap().1.trim().trim_end_matches("*/").trim().to_string(),
+                        text: clean_line(line, word).to_string(),
                         location: Location {
                             file: path.to_path_buf(),
                             line: line_num + 1,
@@ -233,7 +241,7 @@ pub fn scan_readme_file(path: &Path, entries: &mut Vec<Entry>) -> io::Result<()>
             if word.to_lowercase().starts_with("todo") && word.chars().any(|ch| PRIORITY_CHARS.contains(&ch)) {
                 if let Some(priority) = parse_priority(word) {
                     entries.push(Entry {
-                        text: line.split_once(word).unwrap().1.trim().trim_end_matches("*/").trim().to_string(),
+                        text: clean_line(line, word).to_string(),
                         location: Location {
                             file: path.to_path_buf(),
                             line: line_num + 1,
@@ -272,6 +280,7 @@ fn generic_test() {
         * TODO baz
         TODO baz2
         TODO baz2 todo
+        <!-- TODO foo2 -->
         */
     "#;
 
@@ -281,7 +290,7 @@ fn generic_test() {
 
     scan_string(str.to_string(), path.clone(), &mut entries);
 
-    assert_eq!(5, entries.len());
+    assert_eq!(6, entries.len());
 
     assert_eq!(Entry {
         data: EntryData::Generic,
@@ -327,6 +336,15 @@ fn generic_test() {
             line: 10,
         }
     }, entries[4]);
+
+    assert_eq!(Entry {
+        data: EntryData::Generic,
+        text: String::from("foo2"),
+        location: Location {
+            file: path.clone(),
+            line: 11,
+        }
+    }, entries[5]);
 }
 
 #[test]
@@ -342,6 +360,7 @@ fn category_test() {
         // TODO@baz2 a
         /* TODO@baz3 */
         // TODO@baz3 b
+        <!-- TODO@baz3 -->
     "#;
 
     let mut entries: Vec<Entry> = vec![];
@@ -350,7 +369,7 @@ fn category_test() {
 
     scan_string(str.to_string(), path.clone(), &mut entries);
 
-    assert_eq!(6, entries.len());
+    assert_eq!(7, entries.len());
 
     assert_eq!(Entry {
         data: EntryData::Category(String::from("foo")),
@@ -405,6 +424,15 @@ fn category_test() {
             line: 11,
         }
     }, entries[5]);
+
+    assert_eq!(Entry {
+        data: EntryData::Category(String::from("baz3")),
+        text: String::from(""),
+        location: Location {
+            file: path.clone(),
+            line: 12,
+        }
+    }, entries[6]);
 }
 
 #[test]
@@ -423,6 +451,7 @@ fn priority_test() {
         // TODO1 a
         /* TODO2 */
         // TODO3 b
+        <!-- TODO4 b -->
     "#;
 
     let mut entries: Vec<Entry> = vec![];
@@ -431,7 +460,7 @@ fn priority_test() {
 
     scan_string(str.to_string(), path.clone(), &mut entries);
 
-    assert_eq!(9, entries.len());
+    assert_eq!(10, entries.len());
 
     assert_eq!(Entry {
         data: EntryData::Priority(-1),
@@ -513,6 +542,15 @@ fn priority_test() {
             line: 14,
         }
     }, entries[8]);
+
+    assert_eq!(Entry {
+        data: EntryData::Priority(4),
+        text: String::from("b"),
+        location: Location {
+            file: path.clone(),
+            line: 15,
+        }
+    }, entries[9]);
 }
 
 #[test]
