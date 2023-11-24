@@ -1,6 +1,7 @@
+use std::fs::canonicalize;
 use std::path::PathBuf;
 
-use clap::Parser;
+use clap::{Parser, ArgAction};
 use scan::{scan_readme_file, add_excludes_from_gitignore};
 use crate::entries::Entry;
 use crate::render::render_entries;
@@ -33,8 +34,9 @@ struct Args {
     exclude: Vec<String>,
 
     /// Show stats after listing TODOs
-    #[arg(short, long, default_value_t = false)]
-    verbose: bool,
+    #[arg(short, long)]
+    #[clap(action = ArgAction::Count)]
+    verbose: u8,
 }
 
 fn main() {
@@ -45,7 +47,7 @@ fn main() {
     let mut excludes: Vec<PathBuf> = vec![];
 
     let mut entries: Vec<Entry> = vec![];
-    let mut stats = Stats::new();
+    let mut stats = Stats::new(args.verbose);
 
     for p in args.paths {
         let mut path = root_dir.clone();
@@ -65,7 +67,11 @@ fn main() {
         let mut path = root_dir.clone();
         path.push(exclude);
 
-        excludes.push(path);
+        if path.exists() {
+            if let Ok(realpath) = canonicalize(path) {
+                excludes.push(realpath);
+            }
+        }
     }
 
     let mut todos_path = root_dir.clone();
@@ -94,7 +100,7 @@ fn main() {
 
     render_entries(entries);
 
-    if args.verbose {
+    if args.verbose > 0 {
         eprint!("\n\n");
         stats.print();
         eprintln!("Paths ({}): {:?}", &paths.len(), &paths);

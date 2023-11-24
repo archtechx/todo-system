@@ -8,21 +8,69 @@ const PRIORITY_CHARS: [char; 10] = ['0', '1', '2', '3', '4', '5', '6', '7', '8',
 use crate::entries::{Entry, EntryData, Location};
 
 pub struct Stats {
-    visited_folders: usize,
-    visited_files: usize,
+    visited_folder_count: usize,
+    visited_file_count: usize,
+    visited_folders: Vec<String>,
+    visited_files: Vec<String>,
+    verbosity: u8,
 }
 
 impl Stats {
-    pub fn new() -> Stats {
+    pub fn new(verbosity: u8) -> Stats {
         Stats {
-            visited_folders: 0,
-            visited_files: 0,
+            visited_folder_count: 0,
+            visited_file_count: 0,
+            visited_folders: vec![],
+            visited_files: vec![],
+            verbosity,
+        }
+    }
+
+    pub fn add_file(&mut self, file: String) {
+        self.visited_file_count += 1;
+
+        if self.verbosity >= 3 {
+            eprintln!("[INFO] Visited file: {}", &file);
+        }
+
+        if self.verbosity >= 2 {
+            self.visited_files.push(file);
+        }
+    }
+
+    pub fn add_folder(&mut self, folder: String) {
+        self.visited_folder_count += 1;
+
+        if self.verbosity >= 3 {
+            eprintln!("[INFO] Visited folder: {}", &folder);
+        }
+
+        if self.verbosity >= 2 {
+            self.visited_folders.push(folder);
         }
     }
 
     pub fn print(&self) {
-        eprintln!("[INFO] Visited folders: {}", self.visited_folders);
-        eprintln!("[INFO] Visited files: {}", self.visited_files);
+        if self.verbosity >= 2 {
+            eprintln!("[INFO] Visited folders:");
+
+            for folder in &self.visited_folders {
+                println!("{}", folder);
+            }
+
+            eprint!("\n\n");
+
+            eprintln!("[INFO] Visited files:");
+
+            for file in &self.visited_files {
+                println!("{}", file);
+            }
+
+            eprint!("\n\n");
+        }
+
+        eprintln!("[INFO] Visited folders: {}", self.visited_folder_count);
+        eprintln!("[INFO] Visited files: {}", self.visited_file_count);
     }
 }
 
@@ -59,10 +107,11 @@ pub fn add_excludes_from_gitignore(base_dir: &PathBuf, excludes: &mut Vec<PathBu
     }
 
     for line in std::fs::read_to_string(gitignore).unwrap().lines() {
-        // todo@real this seems to work suboptimally, removing the condition still decreases total visited file count at the expense of larger exclude list
-        // to debug this, add logging of all visited files (for identifying cause) with a higher verbosity level
         if line.trim() == "*" {
-            excludes.push(base_dir.clone());
+            if let Ok(realpath) = canonicalize(&base_dir) {
+                dbg!(&realpath);
+                excludes.push(realpath);
+            }
 
             break;
         }
@@ -76,7 +125,9 @@ pub fn add_excludes_from_gitignore(base_dir: &PathBuf, excludes: &mut Vec<PathBu
 
         if let Some(pattern_str) = pattern.to_str() {
             for path in glob(pattern_str).unwrap() {
-                excludes.push(path.unwrap());
+                if let Ok(exclude) = canonicalize(path.unwrap()) {
+                    excludes.push(exclude);
+                }
             }
         }
     }
@@ -152,14 +203,26 @@ pub fn scan_file(path: &Path, entries: &mut Vec<Entry>) -> io::Result<()> {
 }
 
 pub fn scan_dir(dir: &Path, entries: &mut Vec<Entry>, excludes: &mut Vec<PathBuf>, stats: &mut Stats) -> io::Result<()> {
-    stats.visited_folders += 1;
-
     let mut gitignore = dir.to_path_buf().clone();
     gitignore.push(".gitignore");
 
     if gitignore.exists() {
         add_excludes_from_gitignore(&dir.to_path_buf(), excludes);
+
+        // `add_excludes_from_gitignore` can add the *entire* directory being scanned here to excludes
+        // e.g. if it contains a `*` line. Tthe directory is visited first, and gitignore is read second,
+        // so the exclude would not affect anything inside the for loop. For that reason, we re-check if
+        // `dir` isn't excluded after running `add_excludes_from_gitignore`.
+        // todo@real see if we can optimize this by checking for parent-child in the `for exclude` loop within 'entry
+
+        for exclude in &*excludes {
+            if canonicalize(dir.to_path_buf()).unwrap() == *exclude {
+                return Ok(());
+            }
+        }
     }
+
+    stats.add_folder(dir.to_string_lossy().to_string());
 
     'entry: for entry in fs::read_dir(dir)? {
         let entry = entry?;
@@ -170,7 +233,7 @@ pub fn scan_dir(dir: &Path, entries: &mut Vec<Entry>, excludes: &mut Vec<PathBuf
         }
 
         for exclude in &*excludes {
-            if canonicalize(&path).unwrap() == canonicalize(exclude).unwrap() {
+            if canonicalize(&path).unwrap() == *exclude {
                 continue 'entry;
             }
         }
@@ -178,7 +241,7 @@ pub fn scan_dir(dir: &Path, entries: &mut Vec<Entry>, excludes: &mut Vec<PathBuf
         if path.is_dir() {
             scan_dir(path.as_path(), entries, excludes, stats)?
         } else {
-            stats.visited_files += 1;
+            stats.add_file(path.to_string_lossy().to_string());
             scan_file(path.as_path(), entries)?
         }
     }
