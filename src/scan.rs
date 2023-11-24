@@ -1,4 +1,3 @@
-use std::ffi::OsStr;
 use std::io;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -60,11 +59,16 @@ pub fn add_excludes_from_gitignore(base_dir: &PathBuf, excludes: &mut Vec<PathBu
     }
 
     for line in std::fs::read_to_string(gitignore).unwrap().lines() {
-        for path in glob(line).unwrap() {
-            let mut exclude = base_dir.clone();
-            exclude.push(path.unwrap());
+        let mut pattern = base_dir.clone();
+        pattern.push(line.trim_matches('/'));
 
-            excludes.push(exclude);
+        if let Some(pattern_str) = pattern.to_str() {
+            for path in glob(pattern_str).unwrap() {
+                // todo@real readd this check (if it's still needed after implementing the todo below)
+                // if ! excludes.contains(path.unwrap()) {
+                excludes.push(path.unwrap()); // todo@real don't populate the vector with files when the parent directory would be enough. interpret `*`-ending and `/*`-ending lines as full directory excludes, and don't glob the contents
+                // }
+            }
         }
     }
 }
@@ -138,18 +142,21 @@ pub fn scan_file(path: &Path, entries: &mut Vec<Entry>) -> io::Result<()> {
     Ok(())
 }
 
-pub fn scan_dir(path: &Path, entries: &mut Vec<Entry>, excludes: &mut Vec<PathBuf>, stats: &mut Stats) -> io::Result<()> {
+pub fn scan_dir(dir: &Path, entries: &mut Vec<Entry>, excludes: &mut Vec<PathBuf>, stats: &mut Stats) -> io::Result<()> {
     stats.visited_folders += 1;
 
-    'entry: for entry in fs::read_dir(path)? {
+    let mut gitignore = dir.to_path_buf().clone();
+    gitignore.push(".gitignore");
+
+    if gitignore.exists() {
+        add_excludes_from_gitignore(&dir.to_path_buf(), excludes);
+    }
+
+    'entry: for entry in fs::read_dir(dir)? {
         let entry = entry?;
         let path = entry.path();
 
         if path.components().last().unwrap().as_os_str().to_string_lossy().starts_with('.') {
-            if path.file_name().unwrap() == OsStr::new(".gitignore") {
-                add_excludes_from_gitignore(&path.parent().unwrap().to_path_buf(), excludes);
-            }
-
             continue;
         }
 
