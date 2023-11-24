@@ -109,7 +109,6 @@ pub fn add_excludes_from_gitignore(base_dir: &PathBuf, excludes: &mut Vec<PathBu
     for line in std::fs::read_to_string(gitignore).unwrap().lines() {
         if line.trim() == "*" {
             if let Ok(realpath) = canonicalize(&base_dir) {
-                dbg!(&realpath);
                 excludes.push(realpath);
             }
 
