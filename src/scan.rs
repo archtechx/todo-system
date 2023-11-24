@@ -1,6 +1,8 @@
+use std::ffi::OsStr;
 use std::io;
 use std::fs;
 use std::path::{Path, PathBuf};
+use glob::glob;
 
 const PRIORITY_CHARS: [char; 10] = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
 
@@ -47,6 +49,24 @@ fn clean_line<'a>(line: &'a str, delimiter_word: &str) -> &'a str {
         .trim_end_matches("-->")
         .trim_end_matches("--}}")
         .trim();
+}
+
+pub fn add_excludes_from_gitignore(base_dir: &PathBuf, excludes: &mut Vec<PathBuf>) {
+    let mut gitignore = base_dir.clone();
+    gitignore.push(".gitignore");
+
+    if ! gitignore.exists() {
+        return;
+    }
+
+    for line in std::fs::read_to_string(gitignore).unwrap().lines() {
+        for path in glob(line).unwrap() {
+            let mut exclude = base_dir.clone();
+            exclude.push(path.unwrap());
+
+            excludes.push(exclude);
+        }
+    }
 }
 
 pub fn scan_string(str: String, filename: PathBuf, entries: &mut Vec<Entry>) {
@@ -118,7 +138,7 @@ pub fn scan_file(path: &Path, entries: &mut Vec<Entry>) -> io::Result<()> {
     Ok(())
 }
 
-pub fn scan_dir(path: &Path, entries: &mut Vec<Entry>, excludes: &Vec<PathBuf>, stats: &mut Stats) -> io::Result<()> {
+pub fn scan_dir(path: &Path, entries: &mut Vec<Entry>, excludes: &mut Vec<PathBuf>, stats: &mut Stats) -> io::Result<()> {
     stats.visited_folders += 1;
 
     'entry: for entry in fs::read_dir(path)? {
@@ -126,10 +146,14 @@ pub fn scan_dir(path: &Path, entries: &mut Vec<Entry>, excludes: &Vec<PathBuf>, 
         let path = entry.path();
 
         if path.components().last().unwrap().as_os_str().to_string_lossy().starts_with('.') {
+            if path.file_name().unwrap() == OsStr::new(".gitignore") {
+                add_excludes_from_gitignore(&path.parent().unwrap().to_path_buf(), excludes);
+            }
+
             continue;
         }
 
-        for exclude in excludes {
+        for exclude in &*excludes {
             if path == *exclude {
                 continue 'entry;
             }

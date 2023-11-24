@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::Parser;
-use scan::scan_readme_file;
+use scan::{scan_readme_file, add_excludes_from_gitignore};
 use crate::entries::Entry;
 use crate::render::render_entries;
 use crate::scan::{Stats, scan_dir, scan_todo_file};
@@ -86,8 +86,10 @@ fn main() {
         scan_readme_file(&readme_path, &mut entries).unwrap();
     }
 
+    add_excludes_from_gitignore(&root_dir, &mut excludes);
+
     for p in &paths {
-        scan_dir(p.as_path(), &mut entries, &excludes, &mut stats).unwrap();
+        scan_dir(p.as_path(), &mut entries, &mut excludes, &mut stats).unwrap();
     }
 
     render_entries(entries);
