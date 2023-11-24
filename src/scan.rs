@@ -212,9 +212,7 @@ pub fn scan_dir(dir: &Path, entries: &mut Vec<Entry>, excludes: &mut Vec<PathBuf
         // `add_excludes_from_gitignore` can add the *entire* directory being scanned here to excludes
         // e.g. if it contains a `*` line. Tthe directory is visited first, and gitignore is read second,
         // so the exclude would not affect anything inside the for loop. For that reason, we re-check if
-        // `dir` isn't excluded after running `add_excludes_from_gitignore`.
-        // todo@real see if we can optimize this by checking for parent-child in the `for exclude` loop within 'entry
-
+        // `dir` hasn't become excluded after running `add_excludes_from_gitignore`.
         for exclude in &*excludes {
             if canonicalize(dir.to_path_buf()).unwrap() == *exclude {
                 return Ok(());
