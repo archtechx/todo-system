@@ -1,5 +1,5 @@
 use std::io;
-use std::fs;
+use std::fs::{self, canonicalize};
 use std::path::{Path, PathBuf};
 use glob::glob;
 
@@ -59,15 +59,24 @@ pub fn add_excludes_from_gitignore(base_dir: &PathBuf, excludes: &mut Vec<PathBu
     }
 
     for line in std::fs::read_to_string(gitignore).unwrap().lines() {
+        // todo@real this seems to work suboptimally, removing the condition still decreases total visited file count at the expense of larger exclude list
+        // to debug this, add logging of all visited files (for identifying cause) with a higher verbosity level
+        if line.trim() == "*" {
+            excludes.push(base_dir.clone());
+
+            break;
+        }
+
+        if line.trim().starts_with('!') {
+            continue;
+        }
+
         let mut pattern = base_dir.clone();
-        pattern.push(line.trim_matches('/'));
+        pattern.push(line.trim_end_matches("*/").trim_matches('/'));
 
         if let Some(pattern_str) = pattern.to_str() {
             for path in glob(pattern_str).unwrap() {
-                // todo@real readd this check (if it's still needed after implementing the todo below)
-                // if ! excludes.contains(path.unwrap()) {
-                excludes.push(path.unwrap()); // todo@real don't populate the vector with files when the parent directory would be enough. interpret `*`-ending and `/*`-ending lines as full directory excludes, and don't glob the contents
-                // }
+                excludes.push(path.unwrap());
             }
         }
     }
@@ -161,7 +170,7 @@ pub fn scan_dir(dir: &Path, entries: &mut Vec<Entry>, excludes: &mut Vec<PathBuf
         }
 
         for exclude in &*excludes {
-            if path == *exclude {
+            if canonicalize(&path).unwrap() == canonicalize(exclude).unwrap() {
                 continue 'entry;
             }
         }

@@ -97,8 +97,8 @@ fn main() {
     if args.verbose {
         eprint!("\n\n");
         stats.print();
-        eprintln!("Paths: {:?}", &paths);
-        eprintln!("Excludes: {:?}", &excludes);
+        eprintln!("Paths ({}): {:?}", &paths.len(), &paths);
+        eprintln!("Excludes ({}): {:?}", &excludes.len(), &excludes);
         eprintln!("todo.md: {:?}", &todos_path);
         eprintln!("readme.md: {:?}", &readme_path);
     }
