@@ -369,524 +369,529 @@ pub fn scan_readme_file(path: &Path, entries: &mut Vec<Entry>) -> io::Result<()>
     Ok(())
 }
 
-#[test]
-fn generic_test() {
-    let str = r#"
-        1
-        2
-        // todo foo
-        /* TODO: foo bar */
-        /*
-
-        * TODO baz
-        TODO baz2
-        TODO baz2 todo
-        <!-- TODO foo2 -->
-        */
-    "#;
-
-    let mut entries: Vec<Entry> = vec![];
-    let mut path = PathBuf::new();
-    path.push("foo.txt");
-
-    scan_string(str.to_string(), path.clone(), &mut entries);
-
-    assert_eq!(6, entries.len());
-
-    assert_eq!(Entry {
-        data: EntryData::Generic,
-        text: String::from("foo"),
-        location: Location {
-            file: path.clone(),
-            line: 4,
-        }
-    }, entries[0]);
-
-    assert_eq!(Entry {
-        data: EntryData::Generic,
-        text: String::from("foo bar"),
-        location: Location {
-            file: path.clone(),
-            line: 5,
-        }
-    }, entries[1]);
-
-    assert_eq!(Entry {
-        data: EntryData::Generic,
-        text: String::from("baz"),
-        location: Location {
-            file: path.clone(),
-            line: 8,
-        }
-    }, entries[2]);
-
-    assert_eq!(Entry {
-        data: EntryData::Generic,
-        text: String::from("baz2"),
-        location: Location {
-            file: path.clone(),
-            line: 9,
-        }
-    }, entries[3]);
-
-    assert_eq!(Entry {
-        data: EntryData::Generic,
-        text: String::from("baz2 todo"),
-        location: Location {
-            file: path.clone(),
-            line: 10,
-        }
-    }, entries[4]);
-
-    assert_eq!(Entry {
-        data: EntryData::Generic,
-        text: String::from("foo2"),
-        location: Location {
-            file: path.clone(),
-            line: 11,
-        }
-    }, entries[5]);
-}
-
-#[test]
-fn category_test() {
-    let str = r#"
-        1
-        2
-        todo@foo
-        todo@bar abc def
-        3
-        todo@baz x y
-        4
-        // TODO@baz2 a
-        /* TODO@baz3 */
-        // TODO@baz3 b
-        <!-- TODO@baz3 -->
-    "#;
-
-    let mut entries: Vec<Entry> = vec![];
-    let mut path = PathBuf::new();
-    path.push("foo.txt");
-
-    scan_string(str.to_string(), path.clone(), &mut entries);
-
-    assert_eq!(7, entries.len());
-
-    assert_eq!(Entry {
-        data: EntryData::Category(String::from("foo")),
-        text: String::from(""),
-        location: Location {
-            file: path.clone(),
-            line: 4,
-        }
-    }, entries[0]);
-
-    assert_eq!(Entry {
-        data: EntryData::Category(String::from("bar")),
-        text: String::from("abc def"),
-        location: Location {
-            file: path.clone(),
-            line: 5,
-        }
-    }, entries[1]);
-
-    assert_eq!(Entry {
-        data: EntryData::Category(String::from("baz")),
-        text: String::from("x y"),
-        location: Location {
-            file: path.clone(),
-            line: 7,
-        }
-    }, entries[2]);
-
-    assert_eq!(Entry {
-        data: EntryData::Category(String::from("baz2")),
-        text: String::from("a"),
-        location: Location {
-            file: path.clone(),
-            line: 9,
-        }
-    }, entries[3]);
-
-    assert_eq!(Entry {
-        data: EntryData::Category(String::from("baz3")),
-        text: String::from(""),
-        location: Location {
-            file: path.clone(),
-            line: 10,
-        }
-    }, entries[4]);
-
-    assert_eq!(Entry {
-        data: EntryData::Category(String::from("baz3")),
-        text: String::from("b"),
-        location: Location {
-            file: path.clone(),
-            line: 11,
-        }
-    }, entries[5]);
-
-    assert_eq!(Entry {
-        data: EntryData::Category(String::from("baz3")),
-        text: String::from(""),
-        location: Location {
-            file: path.clone(),
-            line: 12,
-        }
-    }, entries[6]);
-}
-
-#[test]
-fn priority_test() {
-    let str = r#"
-        1
-        2
-        todo00
-        todo000 abc
-        todo0 abc def
-        todo1 foo
-        3
-        todo1 x y
-        4
-        // todo0 bar
-        // TODO1 a
-        /* TODO2 */
-        // TODO3 b
-        <!-- TODO4 b -->
-    "#;
-
-    let mut entries: Vec<Entry> = vec![];
-    let mut path = PathBuf::new();
-    path.push("foo.txt");
-
-    scan_string(str.to_string(), path.clone(), &mut entries);
-
-    assert_eq!(10, entries.len());
-
-    assert_eq!(Entry {
-        data: EntryData::Priority(-1),
-        text: String::from(""),
-        location: Location {
-            file: path.clone(),
-            line: 4,
-        }
-    }, entries[0]);
-
-    assert_eq!(Entry {
-        data: EntryData::Priority(-2),
-        text: String::from("abc"),
-        location: Location {
-            file: path.clone(),
-            line: 5,
-        }
-    }, entries[1]);
-
-    assert_eq!(Entry {
-        data: EntryData::Priority(0),
-        text: String::from("abc def"),
-        location: Location {
-            file: path.clone(),
-            line: 6,
-        }
-    }, entries[2]);
-
-    assert_eq!(Entry {
-        data: EntryData::Priority(1),
-        text: String::from("foo"),
-        location: Location {
-            file: path.clone(),
-            line: 7,
-        }
-    }, entries[3]);
-
-    assert_eq!(Entry {
-        data: EntryData::Priority(1),
-        text: String::from("x y"),
-        location: Location {
-            file: path.clone(),
-            line: 9,
-        }
-    }, entries[4]);
-
-    assert_eq!(Entry {
-        data: EntryData::Priority(0),
-        text: String::from("bar"),
-        location: Location {
-            file: path.clone(),
-            line: 11,
-        }
-    }, entries[5]);
-
-    assert_eq!(Entry {
-        data: EntryData::Priority(1),
-        text: String::from("a"),
-        location: Location {
-            file: path.clone(),
-            line: 12,
-        }
-    }, entries[6]);
-
-    assert_eq!(Entry {
-        data: EntryData::Priority(2),
-        text: String::from(""),
-        location: Location {
-            file: path.clone(),
-            line: 13,
-        }
-    }, entries[7]);
-
-    assert_eq!(Entry {
-        data: EntryData::Priority(3),
-        text: String::from("b"),
-        location: Location {
-            file: path.clone(),
-            line: 14,
-        }
-    }, entries[8]);
-
-    assert_eq!(Entry {
-        data: EntryData::Priority(4),
-        text: String::from("b"),
-        location: Location {
-            file: path.clone(),
-            line: 15,
-        }
-    }, entries[9]);
-}
-
-#[test]
-fn sample_test_ts() {
-    let mut entries: Vec<Entry> = vec![];
-
-    let mut path = std::env::current_dir().unwrap();
-    path.push("samples");
-    path.push("1.ts");
-
-    scan_file(path.as_path(), &mut entries).unwrap();
-
-    assert_eq!(10, entries.len());
-
-    assert_eq!(Entry {
-        data: EntryData::Category(String::from("types")),
-        text: String::from(""),
-        location: Location {
-            file: path.clone(),
-            line: 1,
-        }
-    }, entries[0]);
-
-    assert_eq!(Entry {
-        data: EntryData::Category(String::from("types")),
-        text: String::from("add types"),
-        location: Location {
-            file: path.clone(),
-            line: 5,
-        }
-    }, entries[1]);
-
-    assert_eq!(Entry {
-        data: EntryData::Priority(-2),
-        text: String::from(""),
-        location: Location {
-            file: path.clone(),
-            line: 10,
-        }
-    }, entries[2]);
-
-    assert_eq!(Entry {
-        data: EntryData::Priority(-1),
-        text: String::from("add return typehint"),
-        location: Location {
-            file: path.clone(),
-            line: 14,
-        }
-    }, entries[3]);
-
-    assert_eq!(Entry {
-        data: EntryData::Priority(0),
-        text: String::from("add name typehint"),
-        location: Location {
-            file: path.clone(),
-            line: 19,
-        }
-    }, entries[4]);
-
-    assert_eq!(Entry {
-        data: EntryData::Priority(1),
-        text: String::from("add return typehint"),
-        location: Location {
-            file: path.clone(),
-            line: 23,
-        }
-    }, entries[5]);
-
-    assert_eq!(Entry {
-        data: EntryData::Priority(2),
-        text: String::from("add return typehint"),
-        location: Location {
-            file: path.clone(),
-            line: 27,
-        }
-    }, entries[6]);
-
-    assert_eq!(Entry {
-        data: EntryData::Generic,
-        text: String::from(""),
-        location: Location {
-            file: path.clone(),
-            line: 31,
-        }
-    }, entries[7]);
-
-    assert_eq!(Entry {
-        data: EntryData::Generic,
-        text: String::from("generic todo 2"),
-        location: Location {
-            file: path.clone(),
-            line: 33,
-        }
-    }, entries[8]);
-
-    assert_eq!(Entry {
-        data: EntryData::Generic,
-        text: String::from("generic todo 3"),
-        location: Location {
-            file: path.clone(),
-            line: 34,
-        }
-    }, entries[9]);
-}
-
-#[test]
-fn todo_file_test() {
-    let mut entries: Vec<Entry> = vec![];
-
-    let mut path = std::env::current_dir().unwrap();
-    path.push("samples");
-    path.push("todo.md");
-
-    scan_todo_file(path.as_path(), &mut entries).unwrap();
-
-    assert_eq!(8, entries.len());
-
-    assert_eq!(Entry {
-        data: EntryData::Generic,
-        text: String::from("generic foo"),
-        location: Location {
-            file: path.clone(),
-            line: 1,
-        }
-    }, entries[0]);
-
-    assert_eq!(Entry {
-        data: EntryData::Generic,
-        text: String::from("generic bar"),
-        location: Location {
-            file: path.clone(),
-            line: 2,
-        }
-    }, entries[1]);
-
-    assert_eq!(Entry {
-        data: EntryData::Priority(-1),
-        text: String::from("priority bar"),
-        location: Location {
-            file: path.clone(),
-            line: 3,
-        }
-    }, entries[2]);
-
-    assert_eq!(Entry {
-        data: EntryData::Priority(0),
-        text: String::from("a"),
-        location: Location {
-            file: path.clone(),
-            line: 6,
-        }
-    }, entries[3]);
-
-    assert_eq!(Entry {
-        data: EntryData::Category(String::from("High priority")),
-        text: String::from("foo"),
-        location: Location {
-            file: path.clone(),
-            line: 7,
-        }
-    }, entries[4]);
-
-    assert_eq!(Entry {
-        data: EntryData::Category(String::from("High priority")),
-        text: String::from("bar"),
-        location: Location {
-            file: path.clone(),
-            line: 8,
-        }
-    }, entries[5]);
-
-    assert_eq!(Entry {
-        data: EntryData::Category(String::from("Responsivity")),
-        text: String::from("abc"),
-        location: Location {
-            file: path.clone(),
-            line: 11,
-        }
-    }, entries[6]);
-
-    assert_eq!(Entry {
-        data: EntryData::Category(String::from("Responsivity")),
-        text: String::from("def"),
-        location: Location {
-            file: path.clone(),
-            line: 12,
-        }
-    }, entries[7]);
-}
-
-#[test]
-fn readme_file_test() {
-    let mut entries: Vec<Entry> = vec![];
-
-    let mut path = std::env::current_dir().unwrap();
-    path.push("samples");
-    path.push("README.md");
-
-    scan_readme_file(path.as_path(), &mut entries).unwrap();
-
-    assert_eq!(4, entries.len());
-
-    assert_eq!(Entry {
-        data: EntryData::Generic,
-        text: String::from("abc"),
-        location: Location {
-            file: path.clone(),
-            line: 19,
-        }
-    }, entries[0]);
-
-    assert_eq!(Entry {
-        data: EntryData::Priority(0),
-        text: String::from("def"),
-        location: Location {
-            file: path.clone(),
-            line: 20,
-        }
-    }, entries[1]);
-
-    assert_eq!(Entry {
-        data: EntryData::Generic,
-        text: String::from("bar"),
-        location: Location {
-            file: path.clone(),
-            line: 21,
-        }
-    }, entries[2]);
-
-    assert_eq!(Entry {
-        data: EntryData::Generic,
-        text: String::from("baz"),
-        location: Location {
-            file: path.clone(),
-            line: 22,
-        }
-    }, entries[3]);
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn generic_test() {
+        let str = r#"
+            1
+            2
+            // todo foo
+            /* TODO: foo bar */
+            /*
+
+            * TODO baz
+            TODO baz2
+            TODO baz2 todo
+            <!-- TODO foo2 -->
+            */
+        "#;
+
+        let mut entries: Vec<Entry> = vec![];
+        let mut path = PathBuf::new();
+        path.push("foo.txt");
+
+        scan_string(str.to_string(), path.clone(), &mut entries);
+
+        assert_eq!(6, entries.len());
+
+        assert_eq!(Entry {
+            data: EntryData::Generic,
+            text: String::from("foo"),
+            location: Location {
+                file: path.clone(),
+                line: 4,
+            }
+        }, entries[0]);
+
+        assert_eq!(Entry {
+            data: EntryData::Generic,
+            text: String::from("foo bar"),
+            location: Location {
+                file: path.clone(),
+                line: 5,
+            }
+        }, entries[1]);
+
+        assert_eq!(Entry {
+            data: EntryData::Generic,
+            text: String::from("baz"),
+            location: Location {
+                file: path.clone(),
+                line: 8,
+            }
+        }, entries[2]);
+
+        assert_eq!(Entry {
+            data: EntryData::Generic,
+            text: String::from("baz2"),
+            location: Location {
+                file: path.clone(),
+                line: 9,
+            }
+        }, entries[3]);
+
+        assert_eq!(Entry {
+            data: EntryData::Generic,
+            text: String::from("baz2 todo"),
+            location: Location {
+                file: path.clone(),
+                line: 10,
+            }
+        }, entries[4]);
+
+        assert_eq!(Entry {
+            data: EntryData::Generic,
+            text: String::from("foo2"),
+            location: Location {
+                file: path.clone(),
+                line: 11,
+            }
+        }, entries[5]);
+    }
+
+    #[test]
+    fn category_test() {
+        let str = r#"
+            1
+            2
+            todo@foo
+            todo@bar abc def
+            3
+            todo@baz x y
+            4
+            // TODO@baz2 a
+            /* TODO@baz3 */
+            // TODO@baz3 b
+            <!-- TODO@baz3 -->
+        "#;
+
+        let mut entries: Vec<Entry> = vec![];
+        let mut path = PathBuf::new();
+        path.push("foo.txt");
+
+        scan_string(str.to_string(), path.clone(), &mut entries);
+
+        assert_eq!(7, entries.len());
+
+        assert_eq!(Entry {
+            data: EntryData::Category(String::from("foo")),
+            text: String::from(""),
+            location: Location {
+                file: path.clone(),
+                line: 4,
+            }
+        }, entries[0]);
+
+        assert_eq!(Entry {
+            data: EntryData::Category(String::from("bar")),
+            text: String::from("abc def"),
+            location: Location {
+                file: path.clone(),
+                line: 5,
+            }
+        }, entries[1]);
+
+        assert_eq!(Entry {
+            data: EntryData::Category(String::from("baz")),
+            text: String::from("x y"),
+            location: Location {
+                file: path.clone(),
+                line: 7,
+            }
+        }, entries[2]);
+
+        assert_eq!(Entry {
+            data: EntryData::Category(String::from("baz2")),
+            text: String::from("a"),
+            location: Location {
+                file: path.clone(),
+                line: 9,
+            }
+        }, entries[3]);
+
+        assert_eq!(Entry {
+            data: EntryData::Category(String::from("baz3")),
+            text: String::from(""),
+            location: Location {
+                file: path.clone(),
+                line: 10,
+            }
+        }, entries[4]);
+
+        assert_eq!(Entry {
+            data: EntryData::Category(String::from("baz3")),
+            text: String::from("b"),
+            location: Location {
+                file: path.clone(),
+                line: 11,
+            }
+        }, entries[5]);
+
+        assert_eq!(Entry {
+            data: EntryData::Category(String::from("baz3")),
+            text: String::from(""),
+            location: Location {
+                file: path.clone(),
+                line: 12,
+            }
+        }, entries[6]);
+    }
+
+    #[test]
+    fn priority_test() {
+        let str = r#"
+            1
+            2
+            todo00
+            todo000 abc
+            todo0 abc def
+            todo1 foo
+            3
+            todo1 x y
+            4
+            // todo0 bar
+            // TODO1 a
+            /* TODO2 */
+            // TODO3 b
+            <!-- TODO4 b -->
+        "#;
+
+        let mut entries: Vec<Entry> = vec![];
+        let mut path = PathBuf::new();
+        path.push("foo.txt");
+
+        scan_string(str.to_string(), path.clone(), &mut entries);
+
+        assert_eq!(10, entries.len());
+
+        assert_eq!(Entry {
+            data: EntryData::Priority(-1),
+            text: String::from(""),
+            location: Location {
+                file: path.clone(),
+                line: 4,
+            }
+        }, entries[0]);
+
+        assert_eq!(Entry {
+            data: EntryData::Priority(-2),
+            text: String::from("abc"),
+            location: Location {
+                file: path.clone(),
+                line: 5,
+            }
+        }, entries[1]);
+
+        assert_eq!(Entry {
+            data: EntryData::Priority(0),
+            text: String::from("abc def"),
+            location: Location {
+                file: path.clone(),
+                line: 6,
+            }
+        }, entries[2]);
+
+        assert_eq!(Entry {
+            data: EntryData::Priority(1),
+            text: String::from("foo"),
+            location: Location {
+                file: path.clone(),
+                line: 7,
+            }
+        }, entries[3]);
+
+        assert_eq!(Entry {
+            data: EntryData::Priority(1),
+            text: String::from("x y"),
+            location: Location {
+                file: path.clone(),
+                line: 9,
+            }
+        }, entries[4]);
+
+        assert_eq!(Entry {
+            data: EntryData::Priority(0),
+            text: String::from("bar"),
+            location: Location {
+                file: path.clone(),
+                line: 11,
+            }
+        }, entries[5]);
+
+        assert_eq!(Entry {
+            data: EntryData::Priority(1),
+            text: String::from("a"),
+            location: Location {
+                file: path.clone(),
+                line: 12,
+            }
+        }, entries[6]);
+
+        assert_eq!(Entry {
+            data: EntryData::Priority(2),
+            text: String::from(""),
+            location: Location {
+                file: path.clone(),
+                line: 13,
+            }
+        }, entries[7]);
+
+        assert_eq!(Entry {
+            data: EntryData::Priority(3),
+            text: String::from("b"),
+            location: Location {
+                file: path.clone(),
+                line: 14,
+            }
+        }, entries[8]);
+
+        assert_eq!(Entry {
+            data: EntryData::Priority(4),
+            text: String::from("b"),
+            location: Location {
+                file: path.clone(),
+                line: 15,
+            }
+        }, entries[9]);
+    }
+
+    #[test]
+    fn sample_test_ts() {
+        let mut entries: Vec<Entry> = vec![];
+
+        let mut path = std::env::current_dir().unwrap();
+        path.push("samples");
+        path.push("1.ts");
+
+        scan_file(path.as_path(), &mut entries).unwrap();
+
+        assert_eq!(10, entries.len());
+
+        assert_eq!(Entry {
+            data: EntryData::Category(String::from("types")),
+            text: String::from(""),
+            location: Location {
+                file: path.clone(),
+                line: 1,
+            }
+        }, entries[0]);
+
+        assert_eq!(Entry {
+            data: EntryData::Category(String::from("types")),
+            text: String::from("add types"),
+            location: Location {
+                file: path.clone(),
+                line: 5,
+            }
+        }, entries[1]);
+
+        assert_eq!(Entry {
+            data: EntryData::Priority(-2),
+            text: String::from(""),
+            location: Location {
+                file: path.clone(),
+                line: 10,
+            }
+        }, entries[2]);
+
+        assert_eq!(Entry {
+            data: EntryData::Priority(-1),
+            text: String::from("add return typehint"),
+            location: Location {
+                file: path.clone(),
+                line: 14,
+            }
+        }, entries[3]);
+
+        assert_eq!(Entry {
+            data: EntryData::Priority(0),
+            text: String::from("add name typehint"),
+            location: Location {
+                file: path.clone(),
+                line: 19,
+            }
+        }, entries[4]);
+
+        assert_eq!(Entry {
+            data: EntryData::Priority(1),
+            text: String::from("add return typehint"),
+            location: Location {
+                file: path.clone(),
+                line: 23,
+            }
+        }, entries[5]);
+
+        assert_eq!(Entry {
+            data: EntryData::Priority(2),
+            text: String::from("add return typehint"),
+            location: Location {
+                file: path.clone(),
+                line: 27,
+            }
+        }, entries[6]);
+
+        assert_eq!(Entry {
+            data: EntryData::Generic,
+            text: String::from(""),
+            location: Location {
+                file: path.clone(),
+                line: 31,
+            }
+        }, entries[7]);
+
+        assert_eq!(Entry {
+            data: EntryData::Generic,
+            text: String::from("generic todo 2"),
+            location: Location {
+                file: path.clone(),
+                line: 33,
+            }
+        }, entries[8]);
+
+        assert_eq!(Entry {
+            data: EntryData::Generic,
+            text: String::from("generic todo 3"),
+            location: Location {
+                file: path.clone(),
+                line: 34,
+            }
+        }, entries[9]);
+    }
+
+    #[test]
+    fn todo_file_test() {
+        let mut entries: Vec<Entry> = vec![];
+
+        let mut path = std::env::current_dir().unwrap();
+        path.push("samples");
+        path.push("todo.md");
+
+        scan_todo_file(path.as_path(), &mut entries).unwrap();
+
+        assert_eq!(8, entries.len());
+
+        assert_eq!(Entry {
+            data: EntryData::Generic,
+            text: String::from("generic foo"),
+            location: Location {
+                file: path.clone(),
+                line: 1,
+            }
+        }, entries[0]);
+
+        assert_eq!(Entry {
+            data: EntryData::Generic,
+            text: String::from("generic bar"),
+            location: Location {
+                file: path.clone(),
+                line: 2,
+            }
+        }, entries[1]);
+
+        assert_eq!(Entry {
+            data: EntryData::Priority(-1),
+            text: String::from("priority bar"),
+            location: Location {
+                file: path.clone(),
+                line: 3,
+            }
+        }, entries[2]);
+
+        assert_eq!(Entry {
+            data: EntryData::Priority(0),
+            text: String::from("a"),
+            location: Location {
+                file: path.clone(),
+                line: 6,
+            }
+        }, entries[3]);
+
+        assert_eq!(Entry {
+            data: EntryData::Category(String::from("High priority")),
+            text: String::from("foo"),
+            location: Location {
+                file: path.clone(),
+                line: 7,
+            }
+        }, entries[4]);
+
+        assert_eq!(Entry {
+            data: EntryData::Category(String::from("High priority")),
+            text: String::from("bar"),
+            location: Location {
+                file: path.clone(),
+                line: 8,
+            }
+        }, entries[5]);
+
+        assert_eq!(Entry {
+            data: EntryData::Category(String::from("Responsivity")),
+            text: String::from("abc"),
+            location: Location {
+                file: path.clone(),
+                line: 11,
+            }
+        }, entries[6]);
+
+        assert_eq!(Entry {
+            data: EntryData::Category(String::from("Responsivity")),
+            text: String::from("def"),
+            location: Location {
+                file: path.clone(),
+                line: 12,
+            }
+        }, entries[7]);
+    }
+
+    #[test]
+    fn readme_file_test() {
+        let mut entries: Vec<Entry> = vec![];
+
+        let mut path = std::env::current_dir().unwrap();
+        path.push("samples");
+        path.push("README.md");
+
+        scan_readme_file(path.as_path(), &mut entries).unwrap();
+
+        assert_eq!(4, entries.len());
+
+        assert_eq!(Entry {
+            data: EntryData::Generic,
+            text: String::from("abc"),
+            location: Location {
+                file: path.clone(),
+                line: 19,
+            }
+        }, entries[0]);
+
+        assert_eq!(Entry {
+            data: EntryData::Priority(0),
+            text: String::from("def"),
+            location: Location {
+                file: path.clone(),
+                line: 20,
+            }
+        }, entries[1]);
+
+        assert_eq!(Entry {
+            data: EntryData::Generic,
+            text: String::from("bar"),
+            location: Location {
+                file: path.clone(),
+                line: 21,
+            }
+        }, entries[2]);
+
+        assert_eq!(Entry {
+            data: EntryData::Generic,
+            text: String::from("baz"),
+            location: Location {
+                file: path.clone(),
+                line: 22,
+            }
+        }, entries[3]);
+    }
 }
