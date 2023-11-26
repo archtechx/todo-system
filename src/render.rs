@@ -26,7 +26,7 @@ impl Entry {
 
 pub fn write_ansi(stdout: &mut StandardStream, color: Color, text: &str, bold: bool) {
     stdout.set_color(
-    ColorSpec::new()
+        ColorSpec::new()
             .set_fg(Some(color))
             .set_bold(bold)
     ).unwrap();
