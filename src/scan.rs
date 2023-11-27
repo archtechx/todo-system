@@ -333,6 +333,8 @@ pub fn scan_readme_file(path: &Path, entries: &mut Vec<Entry>) -> io::Result<()>
 
             if cleaned_section == "todo" || cleaned_section == "todos" {
                 in_todo_section = true;
+            } else {
+                in_todo_section = false;
             }
 
             continue;
