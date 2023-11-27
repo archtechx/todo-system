@@ -2,10 +2,9 @@ use std::fs::canonicalize;
 use std::path::PathBuf;
 
 use clap::{Parser, ArgAction};
-use scan::scan_readme_file;
 use crate::entries::Entry;
 use crate::render::render_entries;
-use crate::scan::{Stats, scan_dir, scan_todo_file};
+use crate::scan::{Stats, scan_dir, scan_todo_file, scan_readme_file};
 
 pub mod scan;
 pub mod render;
