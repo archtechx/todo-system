@@ -95,6 +95,7 @@ fn clean_line<'a>(line: &'a str, delimiter_word: &str) -> &'a str {
         .trim_end_matches("*/")
         .trim_end_matches("-->")
         .trim_end_matches("--}}")
+        .trim_end_matches("/>")
         .trim();
 }
 
@@ -154,7 +155,8 @@ pub fn scan_string(str: String, filename: PathBuf, entries: &mut Vec<Entry>) {
             let text = clean_line(line, word);
 
             // Handles: `todo`, `TODO`, `todo:`, `TODO:`
-            if word.to_lowercase().trim_end_matches(':') == "todo" {
+            // Also trims `"` and `'` to handle cases like `foo="bar todo"`
+            if word.to_lowercase().trim_end_matches(':').trim_end_matches('"').trim_end_matches('\'') == "todo" {
                 entries.push(Entry {
                     text: text.to_string(),
                     location: Location {
@@ -260,7 +262,7 @@ pub fn scan_todo_file(path: &Path, entries: &mut Vec<Entry>) -> io::Result<()> {
 
     // This can produce:
     // - generic todos (above any category)
-    // - catgory todos (below a ## category heading)
+    // - category todos (below a ## category heading)
     // - priority todos (priority keyword part of the line)
     'line: for (line_num, line) in str.lines().enumerate() {
         if line.starts_with('#') {
@@ -324,7 +326,7 @@ pub fn scan_readme_file(path: &Path, entries: &mut Vec<Entry>) -> io::Result<()>
 
     // This can produce:
     // - generic todos (above any category)
-    // - catgory todos (below a ## category heading)
+    // - category todos (below a ## category heading) todo@real add this logic and update README.md
     // - priority todos (priority keyword part of the line)
     'line: for (line_num, line) in str.lines().enumerate() {
         if line.starts_with('#') {
