@@ -89,6 +89,7 @@ fn parse_priority(word: &str) -> Option<isize> {
     }
 }
 
+/// Remove closing tags, comments, and whitespace
 fn clean_line<'a>(line: &'a str, delimiter_word: &str) -> &'a str {
     return line.split_once(delimiter_word).unwrap().1
         .trim()
@@ -153,6 +154,19 @@ pub fn scan_string(str: String, filename: PathBuf, entries: &mut Vec<Entry>) {
             }
 
             let text = clean_line(line, word);
+
+            if word.starts_with("todo!(") {
+                entries.push(Entry {
+                    text: line.trim().to_string(),
+                    location: Location {
+                        file: filename.clone(),
+                        line: line_num + 1,
+                    },
+                    data: EntryData::Generic,
+                });
+
+                break;
+            }
 
             // Handles: `todo`, `TODO`, `todo:`, `TODO:`
             // Also trims `"` and `'` to handle cases like `foo="bar todo"`
@@ -771,6 +785,55 @@ mod tests {
                 line: 34,
             }
         }, entries[9]);
+    }
+
+    #[test]
+    fn sample_test_rs() {
+        let mut entries: Vec<Entry> = vec![];
+
+        let mut path = std::env::current_dir().unwrap();
+        path.push("samples");
+        path.push("2.rs");
+
+        scan_file(path.as_path(), &mut entries).unwrap();
+
+        assert_eq!(4, entries.len());
+
+        assert_eq!(Entry {
+            data: EntryData::Generic,
+            text: String::from("todo!(\"generic\");"),
+            location: Location {
+                file: path.clone(),
+                line: 3,
+            }
+        }, entries[0]);
+
+        assert_eq!(Entry {
+            data: EntryData::Generic,
+            text: String::from("todo!();"),
+            location: Location {
+                file: path.clone(),
+                line: 4,
+            }
+        }, entries[1]);
+
+        assert_eq!(Entry {
+            data: EntryData::Generic,
+            text: String::from("todo!(\"@foo not category\");"),
+            location: Location {
+                file: path.clone(),
+                line: 5,
+            }
+        }, entries[2]);
+
+        assert_eq!(Entry {
+            data: EntryData::Generic,
+            text: String::from("todo!(\"00 not priority\");"),
+            location: Location {
+                file: path.clone(),
+                line: 6,
+            }
+        }, entries[3]);
     }
 
     #[test]
