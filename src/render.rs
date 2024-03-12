@@ -12,14 +12,14 @@ impl Entry {
 
         let location = format!("{}:{}", self.location.file.to_string_lossy(), self.location.line);
 
-        if self.text.len() > 0 {
+        if ! self.text.is_empty() {
             write_ansi(&mut stdout, Color::Blue, self.text.as_str(), true);
             write_ansi(&mut stdout, Color::Ansi256(243), format!(" ({})", location).as_str(), false);
         } else {
-            write_ansi(&mut stdout, Color::Cyan, &location.as_str(), true);
+            write_ansi(&mut stdout, Color::Cyan, location.as_str(), true);
         }
 
-        write!(&mut stdout, "\n").unwrap();
+        writeln!(&mut stdout).unwrap();
     }
 }
 
@@ -81,7 +81,7 @@ pub fn render_entries(entries: Vec<Entry>) {
                 // todo0 -> 0
                 // todo00 -> -1
                 // Therefore: 'todo0' + priority.abs() * '0'
-                str.push_str(String::from_utf8(vec![b'0'; priority.abs() as usize]).unwrap().as_str());
+                str.push_str(String::from_utf8(vec![b'0'; priority.unsigned_abs()]).unwrap().as_str());
 
                 str
             },
@@ -90,13 +90,13 @@ pub fn render_entries(entries: Vec<Entry>) {
         };
 
         write_ansi(&mut stdout, Color::Red, format!("## {}", &priority_notation).as_str(), true);
-        write!(stdout, "\n").unwrap();
+        writeln!(stdout).unwrap();
 
         for item in priority_entries.get(priority).unwrap() {
             item.render();
         }
 
-        println!("");
+        println!();
     }
 
     let mut category_keys = category_entries.keys().collect::<Vec<&String>>();
@@ -104,17 +104,17 @@ pub fn render_entries(entries: Vec<Entry>) {
 
     for category in category_keys {
         write_ansi(&mut stdout, Color::Green, format!("## {}", &category).as_str(), true);
-        write!(stdout, "\n").unwrap();
+        writeln!(stdout).unwrap();
 
         for item in category_entries.get(category).unwrap() {
             item.render();
         }
 
-        println!("");
+        println!();
     }
 
     write_ansi(&mut stdout, Color::White, "## Other", true);
-    write!(stdout, "\n").unwrap();
+    writeln!(stdout).unwrap();
 
     generic_entries.sort_by(|a, b| a.text.partial_cmp(&b.text).unwrap());
 

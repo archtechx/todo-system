@@ -79,25 +79,25 @@ fn parse_priority(word: &str) -> Option<isize> {
     let priority_substr = lowercase_word.split("todo").nth(1).unwrap();
 
     if priority_substr.len() == 1 {
-        return Some(priority_substr.to_string().parse::<isize>().unwrap());
+        Some(priority_substr.to_string().parse::<isize>().unwrap())
     } else if priority_substr.chars().all(|ch| ch == '0') {
         // todo0: 1 - 1 = 0
         // todo00: 1 - 2 = -1
-        return Some(1 - priority_substr.len() as isize);
+        Some(1 - priority_substr.len() as isize)
     } else {
-        return None; // invalid syntax like todo11
+        None // invalid syntax like todo11
     }
 }
 
 /// Remove closing tags, comments, and whitespace
 fn clean_line<'a>(line: &'a str, delimiter_word: &str) -> &'a str {
-    return line.split_once(delimiter_word).unwrap().1
+    line.split_once(delimiter_word).unwrap().1
         .trim()
         .trim_end_matches("*/")
         .trim_end_matches("-->")
         .trim_end_matches("--}}")
         .trim_end_matches("/>")
-        .trim();
+        .trim()
 }
 
 pub fn add_excludes_from_gitignore(base_dir: &PathBuf, excludes: &mut Vec<PathBuf>) {
@@ -114,7 +114,7 @@ pub fn add_excludes_from_gitignore(base_dir: &PathBuf, excludes: &mut Vec<PathBu
         }
 
         if line.trim() == "*" {
-            if let Ok(realpath) = canonicalize(&base_dir) {
+            if let Ok(realpath) = canonicalize(base_dir) {
                 excludes.push(realpath);
             }
 
@@ -217,10 +217,9 @@ pub fn scan_string(str: String, filename: PathBuf, entries: &mut Vec<Entry>) {
 }
 
 pub fn scan_file(path: &Path, entries: &mut Vec<Entry>) -> io::Result<()> {
-    match std::fs::read_to_string(path) {
-        Ok(str) => scan_string(str, path.to_path_buf(), entries),
-        Err(_) => (),
-    };
+    if let Ok(str) = std::fs::read_to_string(path) {
+        scan_string(str, path.to_path_buf(), entries);
+    }
 
     Ok(())
 }
@@ -237,7 +236,7 @@ pub fn scan_dir(dir: &Path, entries: &mut Vec<Entry>, excludes: &mut Vec<PathBuf
         // so the exclude would not affect anything inside the for loop. For that reason, we re-check if
         // `dir` hasn't become excluded after running `add_excludes_from_gitignore`.
         for exclude in &*excludes {
-            if canonicalize(dir.to_path_buf()).unwrap() == *exclude {
+            if canonicalize(dir).unwrap() == *exclude {
                 return Ok(());
             }
         }
@@ -347,11 +346,7 @@ pub fn scan_readme_file(path: &Path, entries: &mut Vec<Entry>) -> io::Result<()>
             let section = line.split_once("# ").unwrap().1;
             let cleaned_section = section.to_lowercase().trim_end_matches(':').trim().to_string();
 
-            if cleaned_section == "todo" || cleaned_section == "todos" {
-                in_todo_section = true;
-            } else {
-                in_todo_section = false;
-            }
+            in_todo_section = cleaned_section == "todo" || cleaned_section == "todos";
 
             continue;
         }
