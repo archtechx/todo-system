@@ -2,7 +2,7 @@ function add(foo: any, bar: any): any { // todo@types
     return foo + bar;
 }
 
-function subtract(foo: any, bar: any): any { // todo@types add types
+function subtract(foo: any, bar: any): any { // todo@types: add types
     return foo - bar;
 }
 
@@ -24,12 +24,12 @@ function greet2(name: string) { // todo1 add return typehint
     console.log(`Hello ${name}`);
 }
 
-function echo(str: string) { // todo2 add return typehint
+function echo(str: string) { // todo2: add return typehint
     console.log(str);
 }
 
 // console.log('foo'); // todo
 
-// todo generic todo 2
+// todo: generic todo 2
 // TODO: generic todo 3
 // todo11 invalid todo

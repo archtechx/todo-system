@@ -148,7 +148,7 @@ pub fn scan_string(str: String, filename: PathBuf, entries: &mut Vec<Entry>) {
             continue;
         }
 
-        for word in line.split_whitespace() {
+        for mut word in line.split_whitespace() {
             if ! word.to_lowercase().starts_with("todo") {
                 continue;
             }
@@ -168,9 +168,11 @@ pub fn scan_string(str: String, filename: PathBuf, entries: &mut Vec<Entry>) {
                 break;
             }
 
+            word = word.trim_end_matches(':');
+
             // Handles: `todo`, `TODO`, `todo:`, `TODO:`
             // Also trims `"` and `'` to handle cases like `foo="bar todo"`
-            if word.to_lowercase().trim_end_matches(':').trim_end_matches('"').trim_end_matches('\'') == "todo" {
+            if word.to_lowercase().trim_end_matches('"').trim_end_matches('\'') == "todo" {
                 entries.push(Entry {
                     text: text.to_string(),
                     location: Location {
@@ -289,8 +291,8 @@ pub fn scan_todo_file(path: &Path, entries: &mut Vec<Entry>) -> io::Result<()> {
         }
 
         for word in line.split_whitespace() {
-            if word.to_lowercase().starts_with("todo") && word.chars().any(|ch| PRIORITY_CHARS.contains(&ch)) {
-                if let Some(priority) = parse_priority(word) {
+            if word.to_lowercase().trim_end_matches(':').starts_with("todo") && word.chars().any(|ch| PRIORITY_CHARS.contains(&ch)) {
+                if let Some(priority) = parse_priority(word.trim_end_matches(':')) {
                     entries.push(Entry {
                         text: clean_line(line, word).to_string(),
                         location: Location {
@@ -360,8 +362,8 @@ pub fn scan_readme_file(path: &Path, entries: &mut Vec<Entry>) -> io::Result<()>
         }
 
         for word in line.split_whitespace() {
-            if word.to_lowercase().starts_with("todo") && word.chars().any(|ch| PRIORITY_CHARS.contains(&ch)) {
-                if let Some(priority) = parse_priority(word) {
+            if word.to_lowercase().trim_end_matches(':').starts_with("todo") && word.chars().any(|ch| PRIORITY_CHARS.contains(&ch)) {
+                if let Some(priority) = parse_priority(word.trim_end_matches(':')) {
                     entries.push(Entry {
                         text: clean_line(line, word).to_string(),
                         location: Location {
@@ -926,7 +928,7 @@ mod tests {
 
         scan_readme_file(path.as_path(), &mut entries).unwrap();
 
-        assert_eq!(4, entries.len());
+        assert_eq!(5, entries.len());
 
         assert_eq!(Entry {
             data: EntryData::Generic,
@@ -947,8 +949,8 @@ mod tests {
         }, entries[1]);
 
         assert_eq!(Entry {
-            data: EntryData::Generic,
-            text: String::from("bar"),
+            data: EntryData::Priority(-1),
+            text: String::from("ghi"),
             location: Location {
                 file: path.clone(),
                 line: 21,
@@ -957,11 +959,20 @@ mod tests {
 
         assert_eq!(Entry {
             data: EntryData::Generic,
-            text: String::from("baz"),
+            text: String::from("bar"),
             location: Location {
                 file: path.clone(),
                 line: 22,
             }
         }, entries[3]);
+
+        assert_eq!(Entry {
+            data: EntryData::Generic,
+            text: String::from("baz"),
+            location: Location {
+                file: path.clone(),
+                line: 23,
+            }
+        }, entries[4]);
     }
 }

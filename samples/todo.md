@@ -3,7 +3,7 @@
 - todo00 priority bar
 
 ## High priority
-- todo0 a
+- todo0: a
     - foo
     - [ ] bar
 
