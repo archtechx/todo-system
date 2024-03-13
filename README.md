@@ -192,9 +192,10 @@ To omit ANSI formatting and get raw markdown output, set `NO_COLOR=1` or `TERM=d
 
 There are no downloadable builds at the moment. To compile the tool manually:
 1. Set up Rust locally https://www.rust-lang.org/tools/install
-2. Clone the repo
-3. `cargo build --release`
-4. The binary (`todos`) will appear will `target/release`. Add it to your PATH or create a bash alias:
-   ```sh
-   alias todos="/path/to/todos"
-   ```
+2. `cargo install --git https://github.com/archtechx/todo-system.git`
+3. The tool will be added to your `$PATH` automatically as `todos`
+
+I personally also like creating an alias that does `todos | less`:
+```sh
+alias t="todos | less"
+```
