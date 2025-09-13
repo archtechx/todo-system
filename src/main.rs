@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use clap::{Parser, ArgAction};
 use crate::entries::Entry;
 use crate::render::render_entries;
-use crate::scan::{Stats, scan_dir, scan_todo_file, scan_readme_file};
+use crate::scan::{Stats, scan_dir, scan_todo_file, scan_readme_file, Exclude};
 
 pub mod scan;
 pub mod render;
@@ -43,7 +43,7 @@ fn main() {
     let root_dir: PathBuf = std::env::current_dir().unwrap();
 
     let mut paths: Vec<PathBuf> = vec![];
-    let mut excludes: Vec<PathBuf> = vec![];
+    let mut excludes: Vec<Exclude> = vec![];
 
     let mut entries: Vec<Entry> = vec![];
     let mut stats = Stats::new(args.verbose);
@@ -68,7 +68,7 @@ fn main() {
 
         if path.exists() {
             if let Ok(realpath) = canonicalize(path) {
-                excludes.push(realpath);
+                excludes.push(Exclude::Path(realpath));
             }
         }
     }
@@ -80,13 +80,13 @@ fn main() {
     readme_path.push(&args.readme);
 
     if todos_path.exists() {
-        excludes.push(todos_path.clone());
+        excludes.push(Exclude::Path(todos_path.clone()));
 
         scan_todo_file(&todos_path, &mut entries).unwrap();
     }
 
     if readme_path.exists() {
-        excludes.push(readme_path.clone());
+        excludes.push(Exclude::Path(readme_path.clone()));
 
         scan_readme_file(&readme_path, &mut entries).unwrap();
     }

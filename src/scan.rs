@@ -1,11 +1,26 @@
 use std::io;
 use std::fs::{self, canonicalize};
 use std::path::{Path, PathBuf};
-use glob::glob;
+use glob::{Pattern};
 
 const PRIORITY_CHARS: [char; 10] = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
 
 use crate::entries::{Entry, EntryData, Location};
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum Exclude {
+    Path(PathBuf),
+    Glob(Pattern),
+}
+
+impl Exclude {
+    pub fn matches(&self, path: &Path) -> bool {
+        match self {
+            Exclude::Path(p) => p == path,
+            Exclude::Glob(g) => g.matches_path(path),
+        }
+    }
+}
 
 pub struct Stats {
     visited_folder_count: usize,
@@ -100,7 +115,7 @@ fn clean_line<'a>(line: &'a str, delimiter_word: &str) -> &'a str {
         .trim()
 }
 
-pub fn add_excludes_from_gitignore(base_dir: &PathBuf, excludes: &mut Vec<PathBuf>) {
+pub fn add_excludes_from_gitignore(base_dir: &PathBuf, excludes: &mut Vec<Exclude>) {
     let mut gitignore = base_dir.clone();
     gitignore.push(".gitignore");
 
@@ -115,7 +130,7 @@ pub fn add_excludes_from_gitignore(base_dir: &PathBuf, excludes: &mut Vec<PathBu
 
         if line.trim() == "*" {
             if let Ok(realpath) = canonicalize(base_dir) {
-                excludes.push(realpath);
+                excludes.push(Exclude::Path(realpath));
             }
 
             break;
@@ -132,12 +147,14 @@ pub fn add_excludes_from_gitignore(base_dir: &PathBuf, excludes: &mut Vec<PathBu
         let mut pattern = base_dir.clone();
         pattern.push(line.trim_end_matches("*/").trim_matches('/'));
 
-        if let Some(pattern_str) = pattern.to_str() {
-            for path in glob(pattern_str).unwrap() {
-                if let Ok(exclude) = canonicalize(path.unwrap()) {
-                    excludes.push(exclude);
+        if pattern.to_str().unwrap().contains('*') {
+            if let Some(str) = pattern.to_str() {
+                if let Ok(p) = Pattern::new(str) {
+                    excludes.push(Exclude::Glob(p));
                 }
             }
+        } else {
+            excludes.push(Exclude::Path(pattern));
         }
     }
 }
@@ -226,7 +243,7 @@ pub fn scan_file(path: &Path, entries: &mut Vec<Entry>) -> io::Result<()> {
     Ok(())
 }
 
-pub fn scan_dir(dir: &Path, entries: &mut Vec<Entry>, excludes: &mut Vec<PathBuf>, stats: &mut Stats) -> io::Result<()> {
+pub fn scan_dir(dir: &Path, entries: &mut Vec<Entry>, excludes: &mut Vec<Exclude>, stats: &mut Stats) -> io::Result<()> {
     let mut gitignore = dir.to_path_buf().clone();
     gitignore.push(".gitignore");
 
@@ -234,11 +251,11 @@ pub fn scan_dir(dir: &Path, entries: &mut Vec<Entry>, excludes: &mut Vec<PathBuf
         add_excludes_from_gitignore(&dir.to_path_buf(), excludes);
 
         // `add_excludes_from_gitignore` can add the *entire* directory being scanned here to excludes
-        // e.g. if it contains a `*` line. Tthe directory is visited first, and gitignore is read second,
+        // e.g. if it contains a `*` line. The directory is visited first, and gitignore is read second,
         // so the exclude would not affect anything inside the for loop. For that reason, we re-check if
         // `dir` hasn't become excluded after running `add_excludes_from_gitignore`.
         for exclude in &*excludes {
-            if canonicalize(dir).unwrap() == *exclude {
+            if Exclude::Path(canonicalize(dir).unwrap()) == *exclude {
                 return Ok(());
             }
         }
@@ -255,7 +272,7 @@ pub fn scan_dir(dir: &Path, entries: &mut Vec<Entry>, excludes: &mut Vec<PathBuf
         }
 
         for exclude in &*excludes {
-            if canonicalize(&path).unwrap() == *exclude {
+            if exclude.matches(&path) {
                 continue 'entry;
             }
         }
