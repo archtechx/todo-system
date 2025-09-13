@@ -195,6 +195,14 @@ There are no downloadable builds at the moment. To compile the tool manually:
 2. `cargo install --git https://github.com/archtechx/todo-system.git`
 3. The tool will be added to your `$PATH` automatically as `todos`
 
+If you use Nix (with flakes), you can use this repo as an input. The tool is
+exported as the default package. You can try it out using:
+```
+nix run github:archtechx/todo-system -- --help
+# or create a temporary shell with `todos` in PATH:
+nix shell github:archtechx/todo-system
+```
+
 I personally also like creating an alias that does `todos | less`:
 ```sh
 alias t="todos | less"
