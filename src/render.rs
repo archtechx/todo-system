@@ -113,13 +113,14 @@ pub fn render_entries(entries: Vec<Entry>) {
         println!();
     }
 
-    write_ansi(&mut stdout, Color::White, "## Other", true);
-    writeln!(stdout).unwrap();
+    if generic_entries.len() > 0 {
+        write_ansi(&mut stdout, Color::White, "## Other", true);
+        writeln!(stdout).unwrap();
 
-    generic_entries.sort_by(|a, b| a.text.partial_cmp(&b.text).unwrap());
+        generic_entries.sort_by(|a, b| a.text.partial_cmp(&b.text).unwrap());
 
-    for item in generic_entries {
-        item.render();
+        for item in generic_entries {
+            item.render();
+        }
     }
-
 }
