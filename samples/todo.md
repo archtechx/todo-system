@@ -10,3 +10,15 @@
 ## Responsivity
 - abc
 - [ ] def
+  ```
+    # make this work
+    foo bar
+    #foo bar
+  ```
+
+#example
+```
+# make this work
+foo bar
+#foo bar
+```

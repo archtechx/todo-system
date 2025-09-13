@@ -274,13 +274,31 @@ pub fn scan_dir(dir: &Path, entries: &mut Vec<Entry>, excludes: &mut Vec<PathBuf
 pub fn scan_todo_file(path: &Path, entries: &mut Vec<Entry>) -> io::Result<()> {
     let str = fs::read_to_string(path)?;
     let mut current_category: Option<&str> = None;
+    let mut in_code_block = false;
 
     // This can produce:
     // - generic todos (above any category)
     // - category todos (below a ## category heading)
     // - priority todos (priority keyword part of the line)
     'line: for (line_num, line) in str.lines().enumerate() {
-        if line.starts_with('#') {
+        if line.starts_with("```") {
+            // If we are in an *unindented* code block, we ignore lines
+            // starting with # - they cannot be headings. Indented
+            // code blocks are irrelevant.
+            in_code_block = ! in_code_block;
+            continue;
+        }
+
+        // We need the line to start with # followed by spaces. So we cannot check just for '#'
+        // There's also no real need for any complex logic iterating over the line's characters,
+        // we can just check reasonable heading hierarchy like this. Anything else is unlikely.
+        if ! in_code_block && (false
+            || line.starts_with("# ")
+            || line.starts_with("## ")
+            || line.starts_with("### ")
+            || line.starts_with("#### ")
+            || line.starts_with("##### ")
+        ) {
             current_category = Some(line.split_once("# ").unwrap().1);
 
             continue;
@@ -338,13 +356,31 @@ pub fn scan_todo_file(path: &Path, entries: &mut Vec<Entry>) -> io::Result<()> {
 pub fn scan_readme_file(path: &Path, entries: &mut Vec<Entry>) -> io::Result<()> {
     let str = fs::read_to_string(path)?;
     let mut in_todo_section = false;
+    let mut in_code_block = false;
 
     // This can produce:
     // - generic todos (above any category)
     // - category todos (below a ## category heading) todo@real add this logic and update README.md
     // - priority todos (priority keyword part of the line)
     'line: for (line_num, line) in str.lines().enumerate() {
-        if line.starts_with('#') {
+        if line.starts_with("```") {
+            // If we are in an *unindented* code block, we ignore lines
+            // starting with # - they cannot be headings. Indented
+            // code blocks are irrelevant.
+            in_code_block = ! in_code_block;
+            continue;
+        }
+
+        // We need the line to start with # followed by spaces. So we cannot check just for '#'
+        // There's also no real need for any complex logic iterating over the line's characters,
+        // we can just check reasonable heading hierarchy like this. Anything else is unlikely.
+        if ! in_code_block && (false
+            || line.starts_with("# ")
+            || line.starts_with("## ")
+            || line.starts_with("### ")
+            || line.starts_with("#### ")
+            || line.starts_with("##### ")
+        ) {
             let section = line.split_once("# ").unwrap().1;
             let cleaned_section = section.to_lowercase().trim_end_matches(':').trim().to_string();
 

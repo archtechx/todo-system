@@ -26,3 +26,20 @@ def
 
 - abc
 - def
+  ```
+  #!/bin/bash
+
+  # call foo with bar argument
+  foo bar
+  #comment without space
+  ```
+
+#Example script:
+```
+#!/bin/bash
+
+# call foo with bar argument
+foo bar
+
+#comment without space
+```
